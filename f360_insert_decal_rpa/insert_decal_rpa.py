@@ -71,7 +71,7 @@ EXTERNAL_PROCESS: subprocess.Popen
 
 def _launch_external_process(retry=False):
     global EXTERNAL_PROCESS
-    cd = pathlib.Path(__file__).parent
+    cd = pathlib.Path(__file__).parent.parent
     for i in sys.path:
         if r'Autodesk\webdeploy' in i:
             ip = pathlib.Path(i)
@@ -89,7 +89,7 @@ def _launch_external_process(retry=False):
     # By launching "python.exe -c import foo; foo.main()" format, Python loads _ctypes.pyd which placed on current dir.
 
     EXTERNAL_PROCESS = subprocess.Popen(
-        [str(pd_path / 'python.exe'), '-c', "import external_process; external_process.message_pump()"],
+        [str(pd_path / 'python.exe'), '-c', "import f360_insert_decal_rpa.external_process as ep; ep.message_pump()"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         cwd=str(cd))
     init_ret = EXTERNAL_PROCESS.stdout.readline().decode().strip()
