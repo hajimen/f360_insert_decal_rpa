@@ -4,7 +4,7 @@ import time
 import pathlib
 import pickle
 
-from f360_insert_decal_rpa.custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, FILL_PARAMETER_DIALOG
+from .custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, FILL_PARAMETER_DIALOG
 
 
 MAX_WAIT_RETRY = 3

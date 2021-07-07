@@ -39,22 +39,18 @@ for i in sys.modules.keys():
 from f360_insert_decal_rpa import start as insert_decal_rpa_start
 
 
-HANDLER = None
+HANDLER: ty.Union[ac.CustomEventHandler, None] = None
 CUSTOM_EVENT: ty.Union[ac.CustomEvent, None] = None
 
 
 def run(context):
     global CUSTOM_EVENT, HANDLER
-    ui = None
-    app = None
+    app = ac.Application.get()
     try:
-        app = ac.Application.get()
-        wh = WaitRpaDoneEventHandler()
-        HANDLER = wh
+        HANDLER = WaitRpaDoneEventHandler()
         app.unregisterCustomEvent('wait_rpa_done')
-        ce = app.registerCustomEvent('wait_rpa_done')
-        ce.add(wh)
-        CUSTOM_EVENT = ce
+        CUSTOM_EVENT = app.registerCustomEvent('wait_rpa_done')
+        CUSTOM_EVENT.add(HANDLER)
         insert_decal_rpa_start('wait_rpa_done', 'foo', ac.ViewOrientations.TopViewOrientation, ac.Point3D.create(0., 0., 0.), [])
         adsk.autoTerminate(False)
     except Exception:
