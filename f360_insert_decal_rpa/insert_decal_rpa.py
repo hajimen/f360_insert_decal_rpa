@@ -6,11 +6,19 @@ import time
 import pickle
 import subprocess
 import sys
+import threading
 
 import adsk.core as ac
 import adsk.fusion as af
 
-from .custom_event_ids import CLEANUP_ID, FILL_PARAMETER_DIALOG, LOOP_HEAD_ID, REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID
+# enable here when debugging
+cei = '.'.join(__name__.split('.')[:-1] + ['custom_event_ids'])
+if cei in sys.modules:
+    import importlib
+    importlib.reload(sys.modules[cei])
+del cei
+
+from .custom_event_ids import CLEANUP_ID, FILL_PARAMETER_DIALOG, LOOP_HEAD_ID, REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, START_NEXT_ID
 
 
 @dataclass
@@ -18,7 +26,7 @@ class InsertDecalParameter:
     source_occurrence: af.Occurrence
     accommodate_occurrence: af.Occurrence
     new_name: str
-    decal_image_path: pathlib.Path
+    decal_image_file: pathlib.Path
     attributes: ty.Union[ty.List[ty.Tuple[str, str, str]], None] = None
     opacity: ty.Union[int, None] = None
     x_distance: ty.Union[float, None] = None
@@ -38,7 +46,10 @@ class Parameters:
     error_event_id: str
     i_insert_decal_parameters: int
     insert_decal_parameters: ty.List[InsertDecalParameter]
-    click_point: ac.Point2D
+    click_point: ty.Union[ac.Point2D, None]
+    target_point: ac.Point3D
+    view_orientation: ac.ViewOrientations
+    silent: bool
 
 
 class EventHandler(ac.CustomEventHandler):
@@ -102,7 +113,7 @@ def launch_external_process(retry=False):
         return
 
     if init_ret == 'ctypes bug':
-        raise Exception("F360's Python's buggy _ctypes.pyd is loaded. I don't know why. Avoid it.")
+        raise Exception("F360's Python's buggy _ctypes.pyd is loaded. I don't know why. Fix it.")
 
     if init_ret != 'ready':
         raise Exception("external process is not ready.")
@@ -114,12 +125,21 @@ def call_external_process(func_name: str, args: ty.Any):
     EXTERNAL_PROCESS.stdin.write((f"{str(len(byte_args))}\n").encode())
     EXTERNAL_PROCESS.stdin.write(byte_args)
     EXTERNAL_PROCESS.stdin.flush()
+    threading.Thread(target=call_external_process_receive).start()
+
+
+def call_external_process_receive():
+    # An worker thread to an wait response from the external process.
     ret_len = int(EXTERNAL_PROCESS.stdout.readline().decode().strip())
     byte_ret = EXTERNAL_PROCESS.stdout.read(ret_len)
-    return pickle.loads(byte_ret)
+    ret = pickle.loads(byte_ret)
+    if ret is None:  # exit
+        return
+    event_id, msg = ret
+    APP.fireCustomEvent(event_id, msg)
 
 
-def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrientations, target_point: ac.Point3D, insert_decal_parameters: ty.List[InsertDecalParameter]):  # noqa: E501
+def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrientations, target_point: ac.Point3D, insert_decal_parameters: ty.List[InsertDecalParameter], silent=False):  # noqa: E501
     global PARAMETERS, UI, APP
 
     APP = ac.Application.get()
@@ -131,12 +151,6 @@ def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrie
         return
     UI = APP.userInterface
 
-    camera: ac.Camera = APP.activeViewport.camera
-    camera.target = target_point
-    camera.viewOrientation = view_orientation
-    APP.activeViewport.camera = camera
-    click_point = APP.activeViewport.viewToScreen(APP.activeViewport.modelToViewSpace(target_point))
-
     for s, f in EVENT_DIC.items():
         APP.unregisterCustomEvent(s)
         event = APP.registerCustomEvent(s)
@@ -146,17 +160,30 @@ def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrie
         HANDLERS[s] = handler
 
     launch_external_process()
+    PARAMETERS = Parameters(next_event_id, error_event_id, 0, insert_decal_parameters, None, target_point, view_orientation, silent)
+    call_external_process('minimize_maximize', None)
 
-    UI.messageBox("Insert Decal RPA is going to start now. Please click 'OK' and don't touch the mouse or keyboard until the next message.", 'Insert Decal RPA')  # noqa: E501
 
-    PARAMETERS = Parameters(next_event_id, error_event_id, 0, insert_decal_parameters, click_point)
+def start_next():
+    camera: ac.Camera = APP.activeViewport.camera
+    camera.target = PARAMETERS.target_point
+    camera.viewOrientation = PARAMETERS.view_orientation
+    APP.activeViewport.camera = camera
+    PARAMETERS.click_point = APP.activeViewport.viewToScreen(APP.activeViewport.modelToViewSpace(PARAMETERS.target_point))
+
+    if not PARAMETERS.silent:
+        UI.messageBox("Insert Decal RPA is going to start now. Please click 'OK' and don't touch the mouse or keyboard until the next message.", 'Insert Decal RPA')  # noqa: E501
 
     APP.fireCustomEvent(LOOP_HEAD_ID)
 
 
 def loop_head():
     if PARAMETERS.i_insert_decal_parameters == len(PARAMETERS.insert_decal_parameters):
-        APP.fireCustomEvent(CLEANUP_ID)
+        if PARAMETERS.silent:
+            # mouse pointer on main window often disturbs unit test.
+            call_external_process('move_mouse', (0, 0, CLEANUP_ID))
+        else:
+            APP.fireCustomEvent(CLEANUP_ID)
         return
 
     p = PARAMETERS.insert_decal_parameters[PARAMETERS.i_insert_decal_parameters]
@@ -170,6 +197,25 @@ def loop_head():
         return False
 
     # Paste New
+    rc: af.Component = APP.activeProduct.rootComponent
+
+    def choose_light_bulb(os: ty.List[af.Occurrence]):
+        acos = [rc.allOccurrencesByComponent(o.component)[0] for o in os]
+        for aco in acos:
+            ic = rc
+            for n in aco.fullPathName.split('+'):
+                for io in ic.occurrences:
+                    io.isLightBulbOn = False
+                ic = io.component
+        for aco in acos:
+            ic = rc
+            for n in aco.fullPathName.split('+'):
+                io = ic.occurrences.itemByName(n)
+                io.isLightBulbOn = True
+                ic = io.component
+
+    choose_light_bulb([p.source_occurrence, p.accommodate_occurrence])
+
     acs = UI.activeSelections
     acs.clear()
     acs.add(p.source_occurrence)
@@ -181,7 +227,7 @@ def loop_head():
 
     if exec('Commands.Start FusionPasteNewCommand', '"Paste New"'):
         return
-    if exec('NuCommand.CommitCmd', 'OK in the dialog'):
+    if exec('NuCommands.CommitCmd', 'OK in the dialog'):
         return
     acs.clear()
     current_names = {o.name for o in p.accommodate_occurrence.component.occurrences}
@@ -193,29 +239,21 @@ def loop_head():
         for a in p.attributes:
             o.component.attributes.add(*a)
 
-    ic: af.Component = APP.activeProduct.rootComponent
-    for n in o.fullPathName.split('+'):
-        for io in ic.occurrences:
-            io.isLightBulbOn = False
-        io = ic.occurrences.itemByName(n)
-        io.isLightBulbOn = True
-        ic = io.component
+    choose_light_bulb([o])
 
-    # FusionAddDecalCommand will be executed when this custom event handler runs out.
+    # FusionAddDecalCommand will be executed when this custom event handler has been finished.
     UI.commandDefinitions.itemById('FusionAddDecalCommand').execute()
 
     global I_WAIT_RETRY
     I_WAIT_RETRY = 0
-    event_id, msg = call_external_process('insert_from_my_computer', None)
-    APP.fireCustomEvent(event_id, msg)
+    call_external_process('insert_from_my_computer', (p.decal_image_file, ))
 
 
 def wait_decal_dialog():
     global I_WAIT_RETRY
     if 'FusionAddDecalCommandPanel' in APP.executeTextCommand('Toolkit.cmdDialog'):
         cp = PARAMETERS.click_point
-        event_id, msg = call_external_process('click', (int(cp.x), int(cp.y)))
-        APP.fireCustomEvent(event_id, msg)
+        call_external_process('click', (int(cp.x), int(cp.y)))
     elif I_WAIT_RETRY == MAX_WAIT_RETRY:
         APP.fireCustomEvent(REPORT_ERROR_ID,
                             "I couldn't find DECAL dialog.")
@@ -250,7 +288,7 @@ def fill_parameter_dialog():
     for a, n in dv_dict.items():
         v = getattr(p, a)
         if v is not None:
-            if exec(f'Commands.SetDoubleValue {n} {v}'):
+            if exec(f'Commands.SetDouble {n} {v}'):
                 return
     bv_dict = {
         'h_flip': 'HorizonalFlip',  # The 'Horizonal' is F360's spell.
@@ -271,37 +309,40 @@ def fill_parameter_dialog():
     APP.fireCustomEvent(LOOP_HEAD_ID)
 
 
-def cleanup():
+def cleanup_common():
     global PARAMETERS
     for s in EVENT_DIC.keys():
         handler = HANDLERS[s]
         EVENTS[s].remove(handler)
         APP.unregisterCustomEvent(s)
-
-    next_event_id = PARAMETERS.next_event_id
     PARAMETERS = None
     call_external_process('exit', None)
 
-    UI.messageBox("Insert Decal RPA has been done.", 'Insert Decal RPA')
+
+def cleanup():
+    next_event_id = PARAMETERS.next_event_id
+    silent = PARAMETERS.silent
+
+    cleanup_common()
+
+    if not silent:
+        UI.messageBox("Insert Decal RPA has been done.", 'Insert Decal RPA')
     APP.fireCustomEvent(next_event_id)
 
 
 def report_error(msg):
-    global PARAMETERS
-    for s in EVENT_DIC.keys():
-        handler = HANDLERS[s]
-        EVENTS[s].remove(handler)
-        APP.unregisterCustomEvent(s)
-
     error_event_id = PARAMETERS.error_event_id
-    PARAMETERS = None
-    call_external_process('exit', None)
+    silent = PARAMETERS.silent
 
-    UI.messageBox(msg + "\nInsert Decal RPA might be corrupted for Fusion 360 updates.", 'Insert Decal RPA')
+    cleanup_common()
+
+    if not silent:
+        UI.messageBox('Insert Decal RPA Runtime Error:\n' + msg + "\nInsert Decal RPA might be corrupted for Fusion 360 updates.", 'Insert Decal RPA')
     APP.fireCustomEvent(error_event_id, msg)
 
 
 EVENT_DIC = {
+    START_NEXT_ID: start_next,
     LOOP_HEAD_ID: loop_head,
     WAIT_DECAL_DIALOG_ID: wait_decal_dialog,
     FILL_PARAMETER_DIALOG: fill_parameter_dialog,

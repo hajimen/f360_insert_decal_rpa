@@ -1,19 +1,15 @@
 import sys
-import typing as ty
-import time
 import pathlib
 import pickle
+import ctypes
+from .custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, FILL_PARAMETER_DIALOG, START_NEXT_ID
 
-from .custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, FILL_PARAMETER_DIALOG
 
-
-MAX_WAIT_RETRY = 3
 CURRENT_DIR = pathlib.Path(__file__).parent.parent
-SYS_PATHS = ['app-packages', 'app-packages/win32', 'app-packages/win32/lib', 'app-packages/pythonwin']
 
 
 def append_syspath():
-    for sp in SYS_PATHS:
+    for sp in ['app-packages', 'app-packages/win32', 'app-packages/win32/lib', 'app-packages/pythonwin']:
         p = str(CURRENT_DIR / sp)
         if p not in sys.path:
             sys.path.append(p)
@@ -22,12 +18,7 @@ def append_syspath():
 append_syspath()
 del append_syspath
 
-
-import ctypes
 ctypes.cdll.LoadLibrary(str(CURRENT_DIR / 'app-packages/pywin32_system32/pywintypes37.dll'))
-
-import warnings
-warnings.simplefilter("ignore", UserWarning)
 
 # print(str(sys.modules['_ctypes']), file=sys.stderr)  # This line crashes VSCode Python debugger. I don't know why.
 
@@ -65,64 +56,64 @@ def message_pump():
             return
         arg_len = int(sys.stdin.buffer.readline().decode().strip())
         args = pickle.loads(sys.stdin.buffer.read(arg_len))
-        ret = FUNC_DICT[func_name](*args)
+        if args is None:
+            ret = FUNC_DICT[func_name]()
+        else:
+            ret = FUNC_DICT[func_name](*args)
         byte_ret = pickle.dumps(ret)
         sys.stdout.buffer.write((str(len(byte_ret)) + '\n').encode())
         sys.stdout.buffer.write(byte_ret)
         sys.stdout.flush()
 
 
-def insert_from_my_computer(decal_image_path: pathlib.Path):
-    ifm_elem = None
-    for _ in range(MAX_WAIT_RETRY):
-        time.sleep(0.5)
-        ifms = UIA.top_window().descendants(title='Insert from my computer...')
-        if len(ifms) == 0:
-            time.sleep(2.)
-            continue
-        else:
-            ifm_elem = ifms[0]
-            break
-    if ifm_elem is None:
-        return (REPORT_ERROR_ID,
-                "I couldn't find 'Insert from my computer...' in the dialog.")
+def minimize_maximize():
+    tw = UIA.top_window()
+    tw.minimize()
+    tw.maximize()
+    return (START_NEXT_ID, '')
 
-    ifm_elem.click_input()
-    time.sleep(0.5)
 
-    file_edit = None
-    for _ in range(MAX_WAIT_RETRY):
-        time.sleep(0.5)
-        fes = UIA.top_window().descendants(title='File name:', class_name='Edit')
-        if len(fes) == 0:
-            time.sleep(2.)
-            continue
-        else:
-            file_edit = fes[0]
-            break
-    if file_edit is None:
-        return (REPORT_ERROR_ID,
-                "I couldn't find 'File name:' in the dialog.")
+def insert_from_my_computer(decal_image_file: pathlib.Path):
+    try:
+        ifm_elem = UIA.window(title='Insert').child_window(title='Insert from my computer...')
+        ifm_elem.click_input()
+    except Exception:
+        return (REPORT_ERROR_ID, "I couldn't find 'Insert from my computer...' in the dialog.")
 
-    file_edit.set_edit_text(str(decal_image_path))
-    file_edit.type_keys("{ENTER}")
+    try:
+        file_edit = UIA.top_window().child_window(title='File name:', class_name='Edit')
+        file_edit.set_edit_text(str(decal_image_file))
+        file_edit.type_keys("{ENTER}")
+    except Exception:
+        return (REPORT_ERROR_ID, "I couldn't find 'File name:' edit box in the dialog.")
 
     return (WAIT_DECAL_DIALOG_ID, '')
 
 
 def click(x: int, y: int):
-    pywinauto.mouse.click(coords=(x, y))
-    return (FILL_PARAMETER_DIALOG, '')
+    # Qt for Windows sometimes ignore simple automated click. Mimic human move.
+    try:
+        pywinauto.mouse.move(coords=(x - 2, y))
+        pywinauto.mouse.move(coords=(x - 1, y))
+        pywinauto.mouse.click(coords=(x, y))
+        return (FILL_PARAMETER_DIALOG, '')
+    except Exception:
+        return (REPORT_ERROR_ID, "I couldn't move / click mouse.")
 
 
-def echo(*args: ty.Any):
-    return args
+def move_mouse(x: int, y: int, next_id: str):
+    try:
+        pywinauto.mouse.move(coords=(x, y))
+        return (next_id, '')
+    except Exception:
+        return (REPORT_ERROR_ID, "I couldn't move mouse.")
 
 
 FUNC_DICT = {
     'insert_from_my_computer': insert_from_my_computer,
     'click': click,
-    'echo': echo
+    'minimize_maximize': minimize_maximize,
+    'move_mouse': move_mouse,
 }
 
 if __name__ == '__main__':
