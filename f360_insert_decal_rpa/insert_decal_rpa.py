@@ -23,6 +23,31 @@ from .custom_event_ids import CLEANUP_ID, FILL_PARAMETER_DIALOG, LOOP_HEAD_ID, R
 
 @dataclass
 class InsertDecalParameter:
+    '''
+    Attributes and constructor's args
+    ----------
+    source_occurrence:
+        The subject of Copy -> Paste-New operation.
+    accommodate_occurrence:
+        The destination place of Paste-New operation.
+    new_name:
+        The Paste-New-generated component's name.
+    decal_image_file:
+        PNG file.
+
+    About the parameters below, leave them None when you leave as default.
+
+    attributes:
+        F360's component attributes set to the Paste-New-generated component.
+    opacity:
+        Same with the DECAL dialog. 0-100.
+    [xy]_distance:
+        centimeter
+    z_angle:
+        radian
+    scale_[xy], scale_plane_xy, [hv]_flip, chain_faces:
+        Same with the DECAL dialog.
+    '''
     source_occurrence: af.Occurrence
     accommodate_occurrence: af.Occurrence
     new_name: str
@@ -82,7 +107,7 @@ EXTERNAL_PROCESS: subprocess.Popen
 
 def launch_external_process(retry=False):
     global EXTERNAL_PROCESS
-    cd = pathlib.Path(__file__).parent.parent
+
     for i in sys.path:
         if r'Autodesk\webdeploy' in i:
             ip = pathlib.Path(i)
@@ -99,11 +124,10 @@ def launch_external_process(retry=False):
     # https://stackoverflow.com/questions/62037461/getting-error-while-running-a-script-which-uses-pywinauto
     # By launching "python.exe -c import foo; foo.main()" format, Python loads _ctypes.pyd which placed on current dir.
 
-    module_root = '.'.join(__name__.split('.')[:-1])
     EXTERNAL_PROCESS = subprocess.Popen(
-        [str(pd_path / 'python.exe'), '-c', f"import {module_root}.external_process as ep; ep.message_pump()"],
+        [str(pd_path / 'python.exe'), '-c', "import external_process as ep; ep.message_pump()"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        cwd=str(cd))
+        cwd=str(pathlib.Path(__file__).parent))
     init_ret = EXTERNAL_PROCESS.stdout.readline().decode().strip()
 
     if init_ret == 'comtypes cache cleared':
@@ -140,6 +164,26 @@ def call_external_process_receive():
 
 
 def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrientations, target_point: ac.Point3D, insert_decal_parameters: ty.List[InsertDecalParameter], silent=False):  # noqa: E501
+    '''Start RPA.
+
+    Parameters
+    ----------
+    next_event_id:
+        F360's custom event id. When RPA finishes successfully, the event will be fired.
+    error_event_id:
+        F360's custom event id. When RPA fails, the event will be fired.
+        Error message is in args.additionalInfo of notify(self, args: ac.CustomEventArgs).
+    view_orientation:
+        Usually ac.ViewOrientations.TopViewOrientation is a good choice. But if you need to insert
+        a decal on the back side of the component, ac.ViewOrientations.BottomViewOrientation will be
+        your choice.
+    target_point:
+        The location where mouse clicks while selecting the surface to insert a decal. Usually ac.Point3D.create(0., 0., 0.).
+    insert_decal_parameters:
+        RPA is a batch. You can process multiple source / decal image / dialog parameter set in a call.
+    silent:
+        You can surpress RPA start / finish / failure message boxes.
+    '''
     global PARAMETERS, UI, APP
 
     APP = ac.Application.get()
