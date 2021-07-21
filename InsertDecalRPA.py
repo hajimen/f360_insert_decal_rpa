@@ -68,24 +68,55 @@ def run(context):
         DOC = app.documents.add(ac.DocumentTypes.FusionDesignDocumentType)
         root_comp: af.Component = app.activeProduct.rootComponent
         trans = ac.Matrix3D.create()
-        src_occ = root_comp.occurrences.addNewComponent(trans)
-        src_comp = src_occ.component
-        src_comp.name = 'Source Component'
-        sketch = src_comp.sketches.add(src_comp.xYConstructionPlane)
+        src1_occ = root_comp.occurrences.addNewComponent(trans)
+        src1_occ.component.name = 'Source Component Level 1'
+
+        src_block_occ = src1_occ.component.occurrences.addNewComponent(trans)
+        src_block_occ = src_block_occ.createForAssemblyContext(src1_occ)
+        src_block_occ.component.name = 'Block Component Src'
+        block_sketch = src_block_occ.component.sketches.add(src_block_occ.component.xYConstructionPlane)
+        block_sketch.sketchCurves.sketchLines.addTwoPointRectangle(
+            ac.Point3D.create(-1., -2., 0.), ac.Point3D.create(2., 1., 0.), )
+        block_ext_in = src_block_occ.component.features.extrudeFeatures.createInput(
+            block_sketch.profiles.item(0), af.FeatureOperations.NewBodyFeatureOperation)
+        block_ext_in.setDistanceExtent(False, ac.ValueInput.createByReal(0.3))
+        _ = src_block_occ.component.features.extrudeFeatures.add(block_ext_in)
+
+        src2_occ = src1_occ.component.occurrences.addNewComponent(trans)
+        src2_occ = src2_occ.createForAssemblyContext(src1_occ)
+        src2_comp = src2_occ.component
+        src2_occ.component.name = 'Source Component Level 2'
+        src2_comp.sketches.add(src2_comp.xYConstructionPlane)
+        sketch = src2_comp.sketches.add(src2_comp.xYConstructionPlane)
         sketch.sketchCurves.sketchLines.addTwoPointRectangle(
             ac.Point3D.create(-1., -1., 0.), ac.Point3D.create(1., 1., 0.), )
-        ext_in = src_comp.features.extrudeFeatures.createInput(
+        ext_in = src2_comp.features.extrudeFeatures.createInput(
             sketch.profiles.item(0), af.FeatureOperations.NewBodyFeatureOperation)
         distance = ac.ValueInput.createByReal(0.2)
         ext_in.setDistanceExtent(False, distance)
-        _ = src_comp.features.extrudeFeatures.add(ext_in)
-        acc_occ = root_comp.occurrences.addNewComponent(trans)
-        acc_occ.component.name = 'Accommodate Component'
+        _ = src2_comp.features.extrudeFeatures.add(ext_in)
+        acc1_occ = root_comp.occurrences.addNewComponent(trans)
+        acc1_occ.component.name = 'Accommodate Component Level 1'
+
+        acc_block_occ = acc1_occ.component.occurrences.addNewComponent(trans)
+        acc_block_occ = acc_block_occ.createForAssemblyContext(acc1_occ)
+        acc_block_occ.component.name = 'Block Component Acc'
+        acc_block_sketch = acc_block_occ.component.sketches.add(acc_block_occ.component.xYConstructionPlane)
+        acc_block_sketch.sketchCurves.sketchLines.addTwoPointRectangle(
+            ac.Point3D.create(-2., -1., 0.), ac.Point3D.create(1., 2., 0.), )
+        acc_block_ext_in = acc_block_occ.component.features.extrudeFeatures.createInput(
+            acc_block_sketch.profiles.item(0), af.FeatureOperations.NewBodyFeatureOperation)
+        acc_block_ext_in.setDistanceExtent(False, ac.ValueInput.createByReal(0.3))
+        _ = acc_block_occ.component.features.extrudeFeatures.add(acc_block_ext_in)
+
+        acc2_occ = acc1_occ.component.occurrences.addNewComponent(trans)
+        acc2_occ = acc2_occ.createForAssemblyContext(acc1_occ)
+        acc2_occ.component.name = 'Accommodate Component Level 2'
 
         params: ty.List[InsertDecalParameter] = []
         for i, p in enumerate(TEST_PARAMS):
             dif = CURRENT_DIR / 'test_data/decal_image' / f'{i % 10}.png'
-            idp = InsertDecalParameter(src_occ, acc_occ, str(i), dif, **p)
+            idp = InsertDecalParameter(src2_occ, acc2_occ, str(i), dif, **p)
             params.append(idp)
 
         # Prepare F360's custom events which will be fired when RPA finished / failed.
@@ -145,10 +176,15 @@ class WaitRpaDoneEventHandler(ac.CustomEventHandler):
             # Adjust camera.
             root_comp: af.Component = app.activeProduct.rootComponent
             for o in root_comp.occurrences:
-                if o.component.name == 'Source Component':
-                    src_occ = o
+                if o.component.name == 'Source Component Level 1':
+                    src1_occ = o
                 o.isLightBulbOn = False
-            src_occ.isLightBulbOn = True
+            src1_occ.isLightBulbOn = True
+            for o in src1_occ.component.occurrences:
+                if o.component.name == 'Source Component Level 2':
+                    src2_occ = o
+                o.isLightBulbOn = False
+            src2_occ.isLightBulbOn = True
             camera: ac.Camera = app.activeViewport.camera
             camera.viewOrientation = ac.ViewOrientations.IsoTopLeftViewOrientation
             camera.isSmoothTransition = False
@@ -159,17 +195,22 @@ class WaitRpaDoneEventHandler(ac.CustomEventHandler):
 
             # Adjust light bulbs to capture viewport images of each results.
             for o in root_comp.occurrences:
-                if o.component.name == 'Accommodate Component':
-                    acc_occ = o
+                if o.component.name == 'Accommodate Component Level 1':
+                    acc1_occ = o
                 o.isLightBulbOn = False
-            acc_occ.isLightBulbOn = True
-            for o in acc_occ.component.occurrences:
+            acc1_occ.isLightBulbOn = True
+            for o in acc1_occ.component.occurrences:
+                if o.component.name == 'Accommodate Component Level 2':
+                    acc2_occ = o
+                o.isLightBulbOn = False
+            acc2_occ.isLightBulbOn = True
+            for o in acc2_occ.component.occurrences:
                 o.isLightBulbOn = False
 
             # Capture viewport images of each results and compare them with oracles.
             with tempfile.TemporaryDirectory() as tmp:
                 t = pathlib.Path(tmp)
-                for o in acc_occ.component.occurrences:
+                for o in acc2_occ.component.occurrences:
                     o.isLightBulbOn = True
                     app.activeViewport.saveAsImageFile(str(t / f'{o.component.name}.png'), 200, 200)
                     o.isLightBulbOn = False
@@ -177,7 +218,7 @@ class WaitRpaDoneEventHandler(ac.CustomEventHandler):
                 # In detail:
                 # F360's window size affects test results subtly. I tried to find a good way to compare results with oracles
                 # like feature value (SIFT etc.), but in vain.
-                for o in acc_occ.component.occurrences:
+                for o in acc2_occ.component.occurrences:
                     gen = Image.open(str(t / f'{o.component.name}.png'))
                     oracle = Image.open(str(CURRENT_DIR / f'test_data/oracle/{o.component.name}.png'))
                     c = Image.new('RGB', (gen.width + oracle.width, max(gen.height, oracle.height)))
