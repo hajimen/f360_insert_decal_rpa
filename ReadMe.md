@@ -2,7 +2,7 @@
 
 f360_insert_decal_rpa is a Python library for Robotic Process Automation (RPA) of
 Autodesk Fusion 360's **Insert -> Decal -> Insert from my computer** operation.
-F360 doesn't have APIs to do it yet (7/9/2021). So I need to automate.
+F360 doesn't have APIs to do it yet (4/2/2022). So I need to automate.
 
 ## Limitations
 
@@ -37,12 +37,3 @@ and specify the repository directory.
 3. Look at `InsertDecalRPA.py` and incorporate the usage to your script / add-in.
 
 Don't forget to add `app-packages` directory to `sys.path` in your script / add-in.
-
-## Misc.
-
-### What is `_ctypes.pyd`?
-
-Today (7/9/2021), F360's Python is 3.7.6. It has a bug in `ctypes`. It crashes `pywinauto`.
-[https://stackoverflow.com/questions/62037461/getting-error-while-running-a-script-which-uses-pywinauto](https://stackoverflow.com/questions/62037461/getting-error-while-running-a-script-which-uses-pywinauto)
-
-The bug is in `_ctypes.pyd`. So I decided to run `pywinauto` in a child process, and make it to load newer `_ctypes.pyd`.

@@ -1,9 +1,12 @@
+from time import sleep
 import sys
 import pathlib
 import pickle
 import ctypes
 from custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, FILL_PARAMETER_DIALOG, START_NEXT_ID
 
+# 'Insert from my computer...' dialog is slow.
+SLEEP_AROUND_INSERT_FROM_MY_COMPUTER = 0.5
 
 PACKAGES_DIR = pathlib.Path(__file__).parent.parent
 if PACKAGES_DIR.name != 'app-packages':  # Running in the repository, not installed by pip.
@@ -20,18 +23,11 @@ def append_syspath():
 append_syspath()
 del append_syspath
 
-ctypes.cdll.LoadLibrary(str(PACKAGES_DIR / 'pywin32_system32/pywintypes37.dll'))
+ctypes.cdll.LoadLibrary(str(PACKAGES_DIR / 'pywin32_system32/pywintypes39.dll'))
 
-# # Check which _ctypes.pyd is loaded.
-# print(str(sys.modules['_ctypes']), file=sys.stderr)  # This line crashes VSCode Python debugger. I don't know why.
-
+# Check comtypes cache
 try:
     import pywinauto
-except TypeError:
-    # Python 3.7.6's ctypes bug. Load fixed _ctypes.pyd.
-    sys.stdout.buffer.write('ctypes bug\n'.encode())
-    sys.stdout.flush()
-    exit()
 except Exception:
     # comtypes cache?
     import traceback
@@ -80,7 +76,9 @@ def minimize_maximize():
 
 def insert_from_my_computer(decal_image_file: pathlib.Path):
     try:
+        sleep(SLEEP_AROUND_INSERT_FROM_MY_COMPUTER)
         ifm_elem = UIA.window(title='Insert').child_window(title='Insert from my computer...')
+        sleep(SLEEP_AROUND_INSERT_FROM_MY_COMPUTER)
         ifm_elem.click_input()
     except Exception:
         return (REPORT_ERROR_ID, "I couldn't find 'Insert from my computer...' in the dialog.")

@@ -25,7 +25,7 @@ from PIL import Image
 
 # F360's Python doesn't reload modules. It is too bad while debugging.
 import importlib
-for i in sys.modules.keys():
+for i in list(sys.modules.keys()):
     if i.startswith('f360_insert_decal_rpa'):
         importlib.reload(sys.modules[i])
 

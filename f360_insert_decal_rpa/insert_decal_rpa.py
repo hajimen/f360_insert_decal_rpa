@@ -11,7 +11,7 @@ import threading
 import adsk.core as ac
 import adsk.fusion as af
 
-# enable here when debugging
+# enable here while debugging
 cei = '.'.join(__name__.split('.')[:-1] + ['custom_event_ids'])
 if cei in sys.modules:
     import importlib
@@ -118,10 +118,11 @@ def launch_external_process(retry=False):
                 pd_path = ip / 'Python'
             break
 
-    # This is a bug workaround of Python 3.7.6. There is a long story here.
+    # This was a bug workaround of Python 3.7.6 which was embedded in old Fusion 360. There is a long story here.
+    # I'm tired to remove the workaround.
     # There is an esoteric behavior in VSCode's Python debugger. The subprocess python.exe loads parent's _ctypes.pyd
     # when launched by "python.exe foo.py" format. I don't know why.
-    # F360's Python's _ctypes.pyd has a bug which crashes pywinauto.
+    # Python 3.7.6's _ctypes.pyd has a bug which crashes pywinauto.
     # https://stackoverflow.com/questions/62037461/getting-error-while-running-a-script-which-uses-pywinauto
     # By launching "python.exe -c import foo; foo.main()" format, Python loads _ctypes.pyd which placed on current dir.
 
@@ -136,9 +137,6 @@ def launch_external_process(retry=False):
             raise Exception('comtypes cache troubled twice. Something looks wrong.')
         launch_external_process(retry=True)
         return
-
-    if init_ret == 'ctypes bug':
-        raise Exception("F360's Python's buggy _ctypes.pyd is loaded. I don't know why. Fix it.")
 
     if init_ret != 'ready':
         raise Exception("external process is not ready.")
