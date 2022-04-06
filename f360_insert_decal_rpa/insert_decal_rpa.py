@@ -120,15 +120,10 @@ def launch_external_process(retry=False):
 
     # This was a bug workaround of Python 3.7.6 which was embedded in old Fusion 360. There is a long story here.
     # I'm tired to remove the workaround.
-    # There is an esoteric behavior in VSCode's Python debugger. The subprocess python.exe loads parent's _ctypes.pyd
-    # when launched by "python.exe foo.py" format. I don't know why.
-    # Python 3.7.6's _ctypes.pyd has a bug which crashes pywinauto.
-    # https://stackoverflow.com/questions/62037461/getting-error-while-running-a-script-which-uses-pywinauto
-    # By launching "python.exe -c import foo; foo.main()" format, Python loads _ctypes.pyd which placed on current dir.
 
     EXTERNAL_PROCESS = subprocess.Popen(
-        [str(pd_path / 'python.exe'), '-c', "import external_process as ep; ep.message_pump()"],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+        [str(pd_path / 'python.exe'), "external_process.py"],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         cwd=str(pathlib.Path(__file__).parent))
     init_ret = EXTERNAL_PROCESS.stdout.readline().decode().strip()
 
@@ -139,7 +134,8 @@ def launch_external_process(retry=False):
         return
 
     if init_ret != 'ready':
-        raise Exception("external process is not ready.")
+        err_str = EXTERNAL_PROCESS.stderr.read().decode()
+        raise Exception(f"external process is not ready.\nError message from the process: {init_ret}\nstderr:\n{err_str}")
 
 
 def call_external_process(func_name: str, args: ty.Any):
