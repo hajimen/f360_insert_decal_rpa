@@ -47,6 +47,9 @@ class InsertDecalParameter:
         radian
     scale_[xy], scale_plane_xy, [hv]_flip, chain_faces:
         Same with the DECAL dialog.
+    pointer_offset_[xy]:
+        In some cases, DECAL dialog result can be unstable if just the origin point was clicked.
+        Offsetting from the origin point can cure it.
     '''
     source_occurrence: af.Occurrence
     accommodate_occurrence: af.Occurrence
@@ -63,6 +66,8 @@ class InsertDecalParameter:
     h_flip: ty.Union[bool, None] = None
     v_flip: ty.Union[bool, None] = None
     chain_faces: ty.Union[bool, None] = None
+    pointer_offset_x: ty.Union[int, int, None] = None
+    pointer_offset_y: ty.Union[int, int, None] = None
 
 
 @dataclass
@@ -177,7 +182,7 @@ def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrie
     insert_decal_parameters:
         RPA is a batch. You can process multiple source / decal image / dialog parameter set in a call.
     silent:
-        You can surpress RPA start / finish / failure message boxes.
+        You can suppress RPA start / finish / failure message boxes.
     '''
     global PARAMETERS, UI, APP
 
@@ -297,8 +302,11 @@ def loop_head():
 def wait_decal_dialog():
     global I_WAIT_RETRY
     if 'FusionAddDecalCommandPanel' in APP.executeTextCommand('Toolkit.cmdDialog'):
+        p: InsertDecalParameter = PARAMETERS.insert_decal_parameters[PARAMETERS.i_insert_decal_parameters]
+        po_x = 0 if p.pointer_offset_x is None else p.pointer_offset_x
+        po_y = 0 if p.pointer_offset_y is None else p.pointer_offset_y
         cp = PARAMETERS.click_point
-        call_external_process('click', (int(cp.x), int(cp.y)))
+        call_external_process('click', (int(cp.x) + po_x, int(cp.y) + po_y))
     elif I_WAIT_RETRY == MAX_WAIT_RETRY:
         APP.fireCustomEvent(REPORT_ERROR_ID,
                             "I couldn't find DECAL dialog.")
