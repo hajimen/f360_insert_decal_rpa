@@ -6,7 +6,7 @@ import ctypes
 from custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, FILL_PARAMETER_DIALOG, START_NEXT_ID
 
 # 'Insert from my computer...' dialog is slow.
-SLEEP_AROUND_INSERT_FROM_MY_COMPUTER = 0.5
+SLEEP_AROUND_INSERT_FROM_MY_COMPUTER = 1.
 
 PACKAGES_DIR = pathlib.Path(__file__).absolute().parent.parent
 if PACKAGES_DIR.name != 'app-packages':  # Running in the repository, not installed by pip.
@@ -67,10 +67,9 @@ def message_pump():
         sys.stdout.flush()
 
 
-def minimize_maximize():
+def set_focus():
     tw = UIA.top_window()
-    tw.minimize()
-    tw.maximize()
+    tw.set_focus()
     return (START_NEXT_ID, '')
 
 
@@ -115,7 +114,7 @@ def move_mouse(x: int, y: int, next_id: str):
 FUNC_DICT = {
     'insert_from_my_computer': insert_from_my_computer,
     'click': click,
-    'minimize_maximize': minimize_maximize,
+    'set_focus': set_focus,
     'move_mouse': move_mouse,
 }
 
