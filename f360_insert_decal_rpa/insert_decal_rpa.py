@@ -47,9 +47,9 @@ class InsertDecalParameter:
         radian
     scale_[xy], scale_plane_xy, [hv]_flip, chain_faces:
         Same with the DECAL dialog.
-    pointer_offset_[xy]:
+    pointer_offset_[xyz]:
         In some cases, DECAL dialog result can be unstable if just the origin point was clicked.
-        Offsetting from the origin point can cure it.
+        Offsetting from the origin point can cure it. The unit is centimeter.
     '''
     source_occurrence: af.Occurrence
     accommodate_occurrence: af.Occurrence
@@ -66,8 +66,9 @@ class InsertDecalParameter:
     h_flip: ty.Union[bool, None] = None
     v_flip: ty.Union[bool, None] = None
     chain_faces: ty.Union[bool, None] = None
-    pointer_offset_x: ty.Union[int, int, None] = None
-    pointer_offset_y: ty.Union[int, int, None] = None
+    pointer_offset_x: ty.Union[float, None] = None
+    pointer_offset_y: ty.Union[float, None] = None
+    pointer_offset_z: ty.Union[float, None] = None
 
 
 @dataclass
@@ -213,7 +214,6 @@ def start_next():
     camera.target = PARAMETERS.target_point
     camera.viewOrientation = PARAMETERS.view_orientation
     APP.activeViewport.camera = camera
-    PARAMETERS.click_point = APP.activeViewport.viewToScreen(APP.activeViewport.modelToViewSpace(PARAMETERS.target_point))
 
     if not PARAMETERS.silent:
         UI.messageBox("Insert Decal RPA is going to start now. Please click 'OK' and don't touch the mouse or keyboard until the next message.", 'Insert Decal RPA')  # noqa: E501
@@ -231,6 +231,13 @@ def loop_head():
         return
 
     p = PARAMETERS.insert_decal_parameters[PARAMETERS.i_insert_decal_parameters]
+    po_x = 0. if p.pointer_offset_x is None else p.pointer_offset_x
+    po_y = 0. if p.pointer_offset_y is None else p.pointer_offset_y
+    po_z = 0. if p.pointer_offset_z is None else p.pointer_offset_z
+    tp: ac.Point3D = PARAMETERS.target_point
+    tp = tp.copy()
+    tp.translateBy(ac.Vector3D.create(po_x, po_y, po_z))
+    PARAMETERS.click_point = APP.activeViewport.viewToScreen(APP.activeViewport.modelToViewSpace(tp))
 
     def exec(cmd, fail_object):
         result = APP.executeTextCommand(cmd)
@@ -302,11 +309,8 @@ def loop_head():
 def wait_decal_dialog():
     global I_WAIT_RETRY
     if 'FusionAddDecalCommandPanel' in APP.executeTextCommand('Toolkit.cmdDialog'):
-        p: InsertDecalParameter = PARAMETERS.insert_decal_parameters[PARAMETERS.i_insert_decal_parameters]
-        po_x = 0 if p.pointer_offset_x is None else p.pointer_offset_x
-        po_y = 0 if p.pointer_offset_y is None else p.pointer_offset_y
         cp = PARAMETERS.click_point
-        call_external_process('click', (int(cp.x) + po_x, int(cp.y) + po_y))
+        call_external_process('click', (int(cp.x), int(cp.y)))
     elif I_WAIT_RETRY == MAX_WAIT_RETRY:
         APP.fireCustomEvent(REPORT_ERROR_ID,
                             "I couldn't find DECAL dialog.")
