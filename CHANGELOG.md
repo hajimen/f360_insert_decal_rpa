@@ -9,3 +9,7 @@
 ## Version 0.1.1 : 2022/4/2
 
 - Follows the update of Fusion 360, especially Python 3.9.7.
+
+## Version 0.1.2 : 2022/4/6
+
+- Bug fix: Now it works fine while debugging.
