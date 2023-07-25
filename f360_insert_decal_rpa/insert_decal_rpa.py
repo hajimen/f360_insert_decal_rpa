@@ -11,14 +11,10 @@ import threading
 import adsk.core as ac
 import adsk.fusion as af
 
-# enable here while debugging
-cei = '.'.join(__name__.split('.')[:-1] + ['custom_event_ids'])
-if cei in sys.modules:
-    import importlib
-    importlib.reload(sys.modules[cei])
-del cei
-
 from .custom_event_ids import CLEANUP_ID, FILL_PARAMETER_DIALOG, LOOP_HEAD_ID, REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, START_NEXT_ID
+
+
+FALLBACK_MODE = (sys.platform != 'win32')  # It doesn't use RPA if True. No decals, of course.
 
 
 @dataclass
@@ -188,13 +184,23 @@ def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrie
     global PARAMETERS, UI, APP
 
     APP = ac.Application.get()
+    UI = APP.userInterface
+
     if PARAMETERS is not None:
         APP.fireCustomEvent(error_event_id, 'insert_decal_rpa is not re-entrant.')
         return
+    PARAMETERS = Parameters(next_event_id, error_event_id, 0, insert_decal_parameters, None, target_point, view_orientation, silent)
+
+    if FALLBACK_MODE:
+        for p in insert_decal_parameters:
+            if paste_new(p):
+                return
+        APP.fireCustomEvent(next_event_id)
+        return
+
     if APP.preferences.generalPreferences.userLanguage != ac.UserLanguages.EnglishLanguage:
         APP.fireCustomEvent(error_event_id, 'insert_decal_rpa requires English as user language.')
         return
-    UI = APP.userInterface
 
     for s, f in EVENT_DIC.items():
         APP.unregisterCustomEvent(s)
@@ -205,7 +211,6 @@ def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrie
         HANDLERS[s] = handler
 
     launch_external_process()
-    PARAMETERS = Parameters(next_event_id, error_event_id, 0, insert_decal_parameters, None, target_point, view_orientation, silent)
     call_external_process('set_focus', None)
 
 
@@ -213,6 +218,7 @@ def start_next():
     camera: ac.Camera = APP.activeViewport.camera
     camera.target = PARAMETERS.target_point
     camera.viewOrientation = PARAMETERS.view_orientation
+    camera.isSmoothTransition = False
     APP.activeViewport.camera = camera
 
     if not PARAMETERS.silent:
@@ -221,24 +227,7 @@ def start_next():
     APP.fireCustomEvent(LOOP_HEAD_ID)
 
 
-def loop_head():
-    if PARAMETERS.i_insert_decal_parameters == len(PARAMETERS.insert_decal_parameters):
-        if PARAMETERS.silent:
-            # mouse pointer on main window often disturbs unit test.
-            call_external_process('move_mouse', (0, 0, CLEANUP_ID))
-        else:
-            APP.fireCustomEvent(CLEANUP_ID)
-        return
-
-    p = PARAMETERS.insert_decal_parameters[PARAMETERS.i_insert_decal_parameters]
-    po_x = 0. if p.pointer_offset_x is None else p.pointer_offset_x
-    po_y = 0. if p.pointer_offset_y is None else p.pointer_offset_y
-    po_z = 0. if p.pointer_offset_z is None else p.pointer_offset_z
-    tp: ac.Point3D = PARAMETERS.target_point
-    tp = tp.copy()
-    tp.translateBy(ac.Vector3D.create(po_x, po_y, po_z))
-    PARAMETERS.click_point = APP.activeViewport.viewToScreen(APP.activeViewport.modelToViewSpace(tp))
-
+def paste_new(p: InsertDecalParameter) -> bool:
     def exec(cmd, fail_object):
         result = APP.executeTextCommand(cmd)
         if result != 'Ok':
@@ -247,7 +236,6 @@ def loop_head():
             return True
         return False
 
-    # Paste New
     rc: af.Component = APP.activeProduct.rootComponent
 
     def choose_light_bulb(os: ty.List[af.Occurrence]):
@@ -276,15 +264,15 @@ def loop_head():
     acs.clear()
     acs.add(p.source_occurrence)
     if exec('Commands.Start CopyCommand', 'Ctrl-C copy'):
-        return
+        return True
     acs.clear()
     existing_names = {o.name for o in p.accommodate_occurrence.component.occurrences}
     acs.add(p.accommodate_occurrence)
 
     if exec('Commands.Start FusionPasteNewCommand', '"Paste New"'):
-        return
+        return True
     if exec('NuCommands.CommitCmd', 'OK in the dialog'):
-        return
+        return True
     acs.clear()
     current_names = {o.name for o in p.accommodate_occurrence.component.occurrences}
     temp_name = (current_names - existing_names).pop()
@@ -297,6 +285,29 @@ def loop_head():
 
     o = o.createForAssemblyContext(p.accommodate_occurrence)
     choose_light_bulb([o])
+    return False
+
+
+def loop_head():
+    if PARAMETERS.i_insert_decal_parameters == len(PARAMETERS.insert_decal_parameters):
+        if PARAMETERS.silent:
+            # mouse pointer on main window often disturbs unit test.
+            call_external_process('move_mouse', (0, 0, CLEANUP_ID))
+        else:
+            APP.fireCustomEvent(CLEANUP_ID)
+        return
+
+    p = PARAMETERS.insert_decal_parameters[PARAMETERS.i_insert_decal_parameters]
+    po_x = 0. if p.pointer_offset_x is None else p.pointer_offset_x
+    po_y = 0. if p.pointer_offset_y is None else p.pointer_offset_y
+    po_z = 0. if p.pointer_offset_z is None else p.pointer_offset_z
+    tp: ac.Point3D = PARAMETERS.target_point
+    tp = tp.copy()
+    tp.translateBy(ac.Vector3D.create(po_x, po_y, po_z))
+    PARAMETERS.click_point = APP.activeViewport.viewToScreen(APP.activeViewport.modelToViewSpace(tp))
+
+    if paste_new(p):
+        return
 
     # FusionAddDecalCommand will be executed when this custom event handler has been finished.
     UI.commandDefinitions.itemById('FusionAddDecalCommand').execute()

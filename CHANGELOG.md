@@ -26,3 +26,8 @@
 ## Version 0.1.5 : 2022/6/9
 
 - The `pointer_offset_[xy]` becomes `pointer_offset_[xyz]` and the unit becomes centimeter.
+
+## Version 0.1.6 : 2023/7/24
+
+- Fallback mode for Mac.
+- Better test oracles / results for regression test.
