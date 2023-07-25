@@ -89,6 +89,7 @@ class EventHandler(ac.CustomEventHandler):
             else:
                 self.func(args.additionalInfo)
         except Exception:
+            print(traceback.format_exc(), file=sys.stderr)
             UI.messageBox('Failed:\n{}'.format(traceback.format_exc()))
 
 
@@ -250,11 +251,16 @@ def loop_head():
             for n in aco.fullPathName.split('+'):
                 for io in ic.occurrences:
                     io.isLightBulbOn = False
+                io = ic.occurrences.itemByName(n)
+                if io is None:
+                    raise Exception('Occurrence.fullPathName seems wrong. Fusion 360 API broken?')
                 ic = io.component
         for aco in acos:
             ic = rc
             for n in aco.fullPathName.split('+'):
                 io = ic.occurrences.itemByName(n)
+                if io is None:
+                    raise Exception('Occurrence.fullPathName seems wrong. Fusion 360 API broken?')
                 io.isLightBulbOn = True
                 ic = io.component
 
@@ -283,6 +289,7 @@ def loop_head():
         for a in p.attributes:
             o.component.attributes.add(*a)
 
+    o = o.createForAssemblyContext(p.accommodate_occurrence)
     choose_light_bulb([o])
 
     # FusionAddDecalCommand will be executed when this custom event handler has been finished.
