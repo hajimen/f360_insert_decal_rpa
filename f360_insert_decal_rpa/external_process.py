@@ -8,7 +8,7 @@ from f360_insert_decal_rpa.custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_D
 
 
 MAX_WAIT_RETRY = 3
-CURRENT_DIR = pathlib.Path(__file__).parent
+CURRENT_DIR = pathlib.Path(__file__).parent.parent
 SYS_PATHS = ['app-packages', 'app-packages/win32', 'app-packages/win32/lib', 'app-packages/pythonwin']
 
 

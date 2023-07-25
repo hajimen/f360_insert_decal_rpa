@@ -32,9 +32,10 @@ if CURRENT_DIR not in sys.path:
 #     print('run')
 
 
-if 'insert_decal_rpa' in sys.modules:
-    import importlib
-    importlib.reload(sys.modules['insert_decal_rpa'])
+import importlib
+for i in sys.modules.keys():
+    if i.startswith('f360_insert_decal_rpa'):
+        importlib.reload(sys.modules[i])
 from f360_insert_decal_rpa import start as insert_decal_rpa_start
 
 
