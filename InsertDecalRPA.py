@@ -54,6 +54,7 @@ TEST_PARAMS = [
     {'h_flip': True},
     {'v_flip': True},
     {'chain_faces': False, 'scale_plane_xy': 2.4},
+    {'pointer_offset_x': 0.2, 'pointer_offset_y': 0.3, 'pointer_offset_z': 0.1},
 ]
 
 
@@ -135,8 +136,10 @@ def run(context):
         adsk.autoTerminate(False)
 
     except Exception:
+        msg = traceback.format_exc()
+        print(msg)
         if ui is not None:
-            ui.messageBox('Failed in run():\n{}'.format(traceback.format_exc()))
+            ui.messageBox('Failed in run():\n{}'.format(msg))
 
 
 def cleanup_handler(app: ac.Application):

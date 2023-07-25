@@ -22,3 +22,7 @@
 
 - `minimize_maximize()` fails in scaling screen (high resolution display). Now it just `set_focus()`.
 - Sometimes RPA fails before clicking `Insert from my computer`. Now waits longer.
+
+## Version 0.1.5 : 2022/6/9
+
+- The `pointer_offset_[xy]` becomes `pointer_offset_[xyz]` and the unit becomes centimeter.
