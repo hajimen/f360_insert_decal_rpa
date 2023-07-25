@@ -24,6 +24,8 @@ append_syspath()
 del append_syspath
 
 ctypes.cdll.LoadLibrary(str(PACKAGES_DIR / 'pywin32_system32/pywintypes39.dll'))
+from ctypes import windll, wintypes
+windll.user32.SetThreadDpiAwarenessContext(wintypes.HANDLE(-1))
 
 # Check comtypes cache
 try:

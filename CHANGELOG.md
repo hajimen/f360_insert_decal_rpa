@@ -31,3 +31,7 @@
 
 - Fallback mode for Mac.
 - Better test oracles / results for regression test.
+
+## Version 0.1.7 : 2023/7/25
+
+- Follows the change of High DPI behavior in Fusion 360 2.0.16753.
