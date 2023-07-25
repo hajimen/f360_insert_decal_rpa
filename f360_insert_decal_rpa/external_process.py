@@ -2,15 +2,17 @@ import sys
 import pathlib
 import pickle
 import ctypes
-from .custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, FILL_PARAMETER_DIALOG, START_NEXT_ID
+from custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, FILL_PARAMETER_DIALOG, START_NEXT_ID
 
 
-CURRENT_DIR = pathlib.Path(__file__).parent.parent
+PACKAGES_DIR = pathlib.Path(__file__).parent.parent
+if PACKAGES_DIR.name != 'app-packages':  # Running in the repository, not installed by pip.
+    PACKAGES_DIR = PACKAGES_DIR / 'app-packages'
 
 
 def append_syspath():
-    for sp in ['app-packages', 'app-packages/win32', 'app-packages/win32/lib', 'app-packages/pythonwin']:
-        p = str(CURRENT_DIR / sp)
+    for sp in ['', 'win32', 'win32/lib', 'pythonwin']:
+        p = str(PACKAGES_DIR / sp)
         if p not in sys.path:
             sys.path.append(p)
 
@@ -18,21 +20,24 @@ def append_syspath():
 append_syspath()
 del append_syspath
 
-ctypes.cdll.LoadLibrary(str(CURRENT_DIR / 'app-packages/pywin32_system32/pywintypes37.dll'))
+ctypes.cdll.LoadLibrary(str(PACKAGES_DIR / 'pywin32_system32/pywintypes37.dll'))
 
+# # Check which _ctypes.pyd is loaded.
 # print(str(sys.modules['_ctypes']), file=sys.stderr)  # This line crashes VSCode Python debugger. I don't know why.
 
 try:
     import pywinauto
-except TypeError:  # Python 3.7.6's ctypes bug. Load fixed _ctypes.pyd.
+except TypeError:
+    # Python 3.7.6's ctypes bug. Load fixed _ctypes.pyd.
     sys.stdout.buffer.write('ctypes bug\n'.encode())
     sys.stdout.flush()
     exit()
-except Exception:  # comtypes cache?
+except Exception:
+    # comtypes cache?
     import traceback
     traceback.print_exc(file=sys.stderr)
     import subprocess
-    subprocess.run([sys.executable, 'clear_comtypes_cache.py', '-y'], cwd=str(CURRENT_DIR / 'app-packages/bin'))
+    subprocess.run([sys.executable, 'clear_comtypes_cache.py', '-y'], cwd=str(PACKAGES_DIR / 'bin'))
     sys.stdout.buffer.write('comtypes cache cleared\n'.encode())
     sys.stdout.flush()
     exit()

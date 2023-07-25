@@ -1,7 +1,7 @@
 # Author-Hajime NAKAZATO
-# Description-RPA module of insert-decal. Fusion 360 API doesn't have the function.
+# Description-RPA module of "Insert -> Decal -> Insert from my computer" operation. Fusion 360 API doesn't have the function.
 
-# This file is just for unit tests. Run as script to test.
+# This file is just for unit test. Run as a script to test.
 
 import traceback
 import sys
@@ -19,10 +19,11 @@ if str(CURRENT_DIR) not in sys.path:
 ap = CURRENT_DIR / 'app-packages'
 if str(ap) not in sys.path:
     sys.path.append(str(ap))
+del ap
 
 from PIL import Image
 
-# F360 Python doesn't reload modules. It is too bad when debugging.
+# F360's Python doesn't reload modules. It is too bad while debugging.
 import importlib
 for i in sys.modules.keys():
     if i.startswith('f360_insert_decal_rpa'):
@@ -62,6 +63,8 @@ def run(context):
     try:
         ui = app.userInterface
         ui.messageBox("This is unit test of f360_insert_decal_rpa.\nDon't touch the mouse or keyboard until the next message.", 'f360_insert_decal_rpa')  # noqa: E501
+
+        # Prepare test fixture.
         DOC = app.documents.add(ac.DocumentTypes.FusionDesignDocumentType)
         root_comp: af.Component = app.activeProduct.rootComponent
         trans = ac.Matrix3D.create()
@@ -80,26 +83,29 @@ def run(context):
         acc_occ.component.name = 'Accommodate Component'
 
         params: ty.List[InsertDecalParameter] = []
-        cd = pathlib.Path(__file__).parent
         for i, p in enumerate(TEST_PARAMS):
-            dif = cd / 'test_data/decal_image' / f'{i % 10}.png'
+            dif = CURRENT_DIR / 'test_data/decal_image' / f'{i % 10}.png'
             idp = InsertDecalParameter(src_occ, acc_occ, str(i), dif, **p)
             params.append(idp)
 
+        # Prepare F360's custom events which will be fired when RPA finished / failed.
         WAIT_HANDLER = WaitRpaDoneEventHandler()
         ERROR_HANDLER = ErrorEventHandler()
-        app.unregisterCustomEvent(WAIT_RPA_DONE_ID)
-        app.unregisterCustomEvent(ERROR_ID)
+        app.unregisterCustomEvent(WAIT_RPA_DONE_ID)  # In case of crash without cleanup while debugging.
+        app.unregisterCustomEvent(ERROR_ID)  # In case of crash without cleanup while debugging.
         WAIT_EVENT = app.registerCustomEvent(WAIT_RPA_DONE_ID)
         ERROR_EVENT = app.registerCustomEvent(ERROR_ID)
         WAIT_EVENT.add(WAIT_HANDLER)
         ERROR_EVENT.add(ERROR_HANDLER)
+
         insert_decal_rpa_start(WAIT_RPA_DONE_ID, ERROR_ID, ac.ViewOrientations.TopViewOrientation, ac.Point3D.create(0., 0., 0.), params, True)
+
+        # Without this, F360's custom event handlers never be called.
         adsk.autoTerminate(False)
 
     except Exception:
-        ui = app.userInterface
-        ui.messageBox('Failed:\n{}'.format(traceback.format_exc()))
+        if ui is not None:
+            ui.messageBox('Failed in run():\n{}'.format(traceback.format_exc()))
 
 
 def cleanup_handler(app: ac.Application):
@@ -120,8 +126,8 @@ class ErrorEventHandler(ac.CustomEventHandler):
 
     def notify(self, args: ac.CustomEventArgs):
         app = ac.Application.get()
-        app.userInterface.messageBox(f'f360_insert_decal_rpa unit test failed.\n{args.additionalInfo}', 'f360_insert_decal_rpa')  # noqa: E501
         cleanup_handler(app)
+        app.userInterface.messageBox(f'f360_insert_decal_rpa unit test failed.\n{args.additionalInfo}', 'f360_insert_decal_rpa')  # noqa: E501
         adsk.terminate()
 
 
@@ -131,47 +137,56 @@ class WaitRpaDoneEventHandler(ac.CustomEventHandler):
 
     def notify(self, args):
         app = ac.Application.get()
-        root_comp: af.Component = app.activeProduct.rootComponent
+        try:
+            cleanup_handler(app)
 
-        for o in root_comp.occurrences:
-            if o.component.name == 'Source Component':
-                src_occ = o
-            o.isLightBulbOn = False
-        src_occ.isLightBulbOn = True
-        camera: ac.Camera = app.activeViewport.camera
-        camera.viewOrientation = ac.ViewOrientations.IsoTopLeftViewOrientation
-        camera.isSmoothTransition = False
-        app.activeViewport.camera = camera
-        camera = app.activeViewport.camera
-        camera.isFitView = True
-        app.activeViewport.camera = camera
-
-        cleanup_handler(app)
-
-        for o in root_comp.occurrences:
-            if o.component.name == 'Accommodate Component':
-                acc_occ = o
-            o.isLightBulbOn = False
-        acc_occ.isLightBulbOn = True
-        for o in acc_occ.component.occurrences:
-            o.isLightBulbOn = False
-        with tempfile.TemporaryDirectory() as tmp:
-            t = pathlib.Path(tmp)
             ui = app.userInterface
-            for o in acc_occ.component.occurrences:
-                o.isLightBulbOn = True
-                app.activeViewport.saveAsImageFile(str(t / f'{o.component.name}.png'), 200, 200)
+
+            # Adjust camera.
+            root_comp: af.Component = app.activeProduct.rootComponent
+            for o in root_comp.occurrences:
+                if o.component.name == 'Source Component':
+                    src_occ = o
                 o.isLightBulbOn = False
-            ui.messageBox('Compare test result with test oracle by your eyes.\nLeft is oracle and right is result.\nComputer is not good enough at this job yet :-)', 'Insert Decal RPA')  # noqa: E501
-            # In detail: F360's window size affects test results subtly. I tried to find a good way to compare results with oracles
-            # like feature value (SIFT etc.), but useless.
+            src_occ.isLightBulbOn = True
+            camera: ac.Camera = app.activeViewport.camera
+            camera.viewOrientation = ac.ViewOrientations.IsoTopLeftViewOrientation
+            camera.isSmoothTransition = False
+            app.activeViewport.camera = camera
+            camera = app.activeViewport.camera
+            camera.isFitView = True
+            app.activeViewport.camera = camera
+
+            # Adjust light bulbs to capture viewport images of each results.
+            for o in root_comp.occurrences:
+                if o.component.name == 'Accommodate Component':
+                    acc_occ = o
+                o.isLightBulbOn = False
+            acc_occ.isLightBulbOn = True
             for o in acc_occ.component.occurrences:
-                gen = Image.open(str(t / f'{o.component.name}.png'))
-                oracle = Image.open(str(CURRENT_DIR / f'test_data/oracle/{o.component.name}.png'))
-                c = Image.new('RGB', (gen.width + oracle.width, max(gen.height, oracle.height)))
-                c.paste(oracle, (0, 0))
-                c.paste(gen, (oracle.width, 0))
-                c.show()
-        
-        DOC.close(False)
+                o.isLightBulbOn = False
+
+            # Capture viewport images of each results and compare them with oracles.
+            with tempfile.TemporaryDirectory() as tmp:
+                t = pathlib.Path(tmp)
+                for o in acc_occ.component.occurrences:
+                    o.isLightBulbOn = True
+                    app.activeViewport.saveAsImageFile(str(t / f'{o.component.name}.png'), 200, 200)
+                    o.isLightBulbOn = False
+                ui.messageBox('Compare test result with test oracle by your eyes.\nLeft is oracle and right is result.\nComputer is not good enough at this job yet :-)', 'Insert Decal RPA')  # noqa: E501
+                # In detail:
+                # F360's window size affects test results subtly. I tried to find a good way to compare results with oracles
+                # like feature value (SIFT etc.), but in vain.
+                for o in acc_occ.component.occurrences:
+                    gen = Image.open(str(t / f'{o.component.name}.png'))
+                    oracle = Image.open(str(CURRENT_DIR / f'test_data/oracle/{o.component.name}.png'))
+                    c = Image.new('RGB', (gen.width + oracle.width, max(gen.height, oracle.height)))
+                    c.paste(oracle, (0, 0))
+                    c.paste(gen, (oracle.width, 0))
+                    c.show()
+
+            DOC.close(False)
+        except Exception:
+            if ui is not None:
+                ui.messageBox('Failed in WaitRpaDoneEventHandler.notify():\n{}'.format(traceback.format_exc()))
         adsk.terminate()
