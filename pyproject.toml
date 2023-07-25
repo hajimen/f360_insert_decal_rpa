@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "f360_insert_decal_rpa"
+dynamic = ["version"]
+description = "f360_insert_decal_rpa is a Python library for Robotic Process Automation (RPA) of Autodesk Fusion 360's **Insert -> Decal -> Insert from my computer** operation."
+authors = [{name = "Hajime Nakazato", email = "hajime@kaoriha.org"},]
+license ={text = "MIT License"}
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "pywinauto >= 0.6.8 ; platform_system == \"Windows\"",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pywinauto >= 0.6.8 ; platform_system == \"Windows\"",
+    "Pillow >= 8.3.1 ; platform_system == \"Windows\""
+]
+
+[project.urls]
+Bug_Tracker = "https://github.com/hajimen/f360_insert_decal_rpa/issues"
+Changelog = "https://github.com/hajimen/f360_insert_decal_rpa/blob/master/CHANGELOG.md"
+
+[tool.setuptools.dynamic]
+version = {attr = "f360_insert_decal_rpa.__version__"}
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+exclude = ["test_data"]

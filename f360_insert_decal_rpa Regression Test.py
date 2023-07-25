@@ -1,13 +1,14 @@
 # Author-Hajime NAKAZATO
 # Description-RPA module of "Insert -> Decal -> Insert from my computer" operation. Fusion 360 API doesn't have the function.
 
-# This file is just for unit test. Run as a script to test.
+# This file is just for testing. Run as a script to test.
 
 import traceback
 import sys
 import pathlib
 import typing as ty
 import tempfile
+import time
 import adsk.core as ac
 import adsk.fusion as af
 import adsk
@@ -21,8 +22,6 @@ if str(ap) not in sys.path:
     sys.path.append(str(ap))
 del ap
 
-from PIL import Image
-
 # F360's Python doesn't reload modules. It is too bad while debugging.
 import importlib
 for i in list(sys.modules.keys()):
@@ -30,7 +29,7 @@ for i in list(sys.modules.keys()):
         importlib.reload(sys.modules[i])
 
 from f360_insert_decal_rpa import start as insert_decal_rpa_start
-from f360_insert_decal_rpa import InsertDecalParameter
+from f360_insert_decal_rpa import InsertDecalParameter, FALLBACK_MODE
 
 
 WAIT_RPA_DONE_ID = 'wait_rpa_done'
@@ -63,7 +62,7 @@ def run(context):
     app: ac.Application = ac.Application.get()
     try:
         ui = app.userInterface
-        ui.messageBox("This is unit test of f360_insert_decal_rpa.\nDon't touch the mouse or keyboard until the next message.", 'f360_insert_decal_rpa')  # noqa: E501
+        ui.messageBox("This is a regression test of f360_insert_decal_rpa.\nDon't touch the mouse or keyboard until the next dialog box is shown.")  # noqa: E501
 
         # Prepare test fixture.
         DOC = app.documents.add(ac.DocumentTypes.FusionDesignDocumentType)
@@ -161,8 +160,14 @@ class ErrorEventHandler(ac.CustomEventHandler):
     def notify(self, args: ac.CustomEventArgs):
         app = ac.Application.get()
         cleanup_handler(app)
-        app.userInterface.messageBox(f'f360_insert_decal_rpa unit test failed.\n{args.additionalInfo}', 'f360_insert_decal_rpa')  # noqa: E501
+        app.userInterface.messageBox(f'f360_insert_decal_rpa test failed.\n{args.additionalInfo}')  # noqa: E501
         adsk.terminate()
+
+
+def do_many_events():
+    for _ in range(100):
+        adsk.doEvents()
+        time.sleep(0.01)
 
 
 class WaitRpaDoneEventHandler(ac.CustomEventHandler):
@@ -188,13 +193,20 @@ class WaitRpaDoneEventHandler(ac.CustomEventHandler):
                     src2_occ = o
                 o.isLightBulbOn = False
             src2_occ.isLightBulbOn = True
+
+            do_many_events()
             camera: ac.Camera = app.activeViewport.camera
-            camera.viewOrientation = ac.ViewOrientations.IsoTopLeftViewOrientation
+            camera.viewOrientation = ac.ViewOrientations.TopViewOrientation
+            camera.isFitView = True
             camera.isSmoothTransition = False
             app.activeViewport.camera = camera
-            camera = app.activeViewport.camera
+            do_many_events()
+
+            camera: ac.Camera = app.activeViewport.camera
             camera.isFitView = True
+            camera.isSmoothTransition = False
             app.activeViewport.camera = camera
+            do_many_events()
 
             # Adjust light bulbs to capture viewport images of each results.
             for o in root_comp.occurrences:
@@ -206,28 +218,36 @@ class WaitRpaDoneEventHandler(ac.CustomEventHandler):
                 if o.component.name == 'Accommodate Component Level 2':
                     acc2_occ = o
                 o.isLightBulbOn = False
+            if len(acc2_occ.component.occurrences) != len(TEST_PARAMS):
+                raise Exception("The number of accommodated components doesn't match.")
             acc2_occ.isLightBulbOn = True
             for o in acc2_occ.component.occurrences:
                 o.isLightBulbOn = False
 
-            # Capture viewport images of each results and compare them with oracles.
-            with tempfile.TemporaryDirectory() as tmp:
-                t = pathlib.Path(tmp)
-                for o in acc2_occ.component.occurrences:
-                    o.isLightBulbOn = True
-                    app.activeViewport.saveAsImageFile(str(t / f'{o.component.name}.png'), 200, 200)
-                    o.isLightBulbOn = False
-                ui.messageBox('Compare test result with test oracle by your eyes.\nLeft is oracle and right is result.\nComputer is not good enough at this job yet :-)', 'Insert Decal RPA')  # noqa: E501
-                # In detail:
-                # F360's window size affects test results subtly. I tried to find a good way to compare results with oracles
-                # like feature value (SIFT etc.), but in vain.
-                for o in acc2_occ.component.occurrences:
-                    gen = Image.open(str(t / f'{o.component.name}.png'))
-                    oracle = Image.open(str(CURRENT_DIR / f'test_data/oracle/{o.component.name}.png'))
-                    c = Image.new('RGB', (gen.width + oracle.width, max(gen.height, oracle.height)))
-                    c.paste(oracle, (0, 0))
-                    c.paste(gen, (oracle.width, 0))
-                    c.show()
+            if FALLBACK_MODE:
+                ui.messageBox('The f360_insert_decal_rpa regression test has done.')
+            else:
+                from PIL import Image
+                # Capture viewport images of each results and compare them with oracles.
+                with tempfile.TemporaryDirectory() as tmp:
+                    t = pathlib.Path(tmp)
+                    for o in acc2_occ.component.occurrences:
+                        o.isLightBulbOn = True
+                        app.activeViewport.saveAsImageFile(str(t / f'{o.component.name}.png'), 200, 200)
+                        o.isLightBulbOn = False
+                    msg = 'Compare test result with test oracles by your eyes.\nLeft is oracle and right is result.\nComputer is not good enough at this job yet :-)'  # noqa: E501
+                    ui.messageBox(msg)
+                    # In detail:
+                    # F360's window size affects test results subtly. I tried to find a good way to compare results with oracles
+                    # like feature value (SIFT etc.), but in vain.
+                    for o in acc2_occ.component.occurrences:
+                        gen = Image.open(str(t / f'{o.component.name}.png'))
+                        # gen.save(str(CURRENT_DIR / f'test_data/oracle/{o.component.name}.png'))  # Make oracle
+                        oracle = Image.open(str(CURRENT_DIR / f'test_data/oracle/{o.component.name}.png'))
+                        c = Image.new('RGB', (gen.width + oracle.width, max(gen.height, oracle.height)))
+                        c.paste(oracle, (0, 0))
+                        c.paste(gen, (oracle.width, 0))
+                        c.show()
 
             DOC.close(False)
         except Exception:
