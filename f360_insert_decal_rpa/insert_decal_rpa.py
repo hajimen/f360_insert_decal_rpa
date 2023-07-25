@@ -205,7 +205,7 @@ def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrie
 
     launch_external_process()
     PARAMETERS = Parameters(next_event_id, error_event_id, 0, insert_decal_parameters, None, target_point, view_orientation, silent)
-    call_external_process('minimize_maximize', None)
+    call_external_process('set_focus', None)
 
 
 def start_next():

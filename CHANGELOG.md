@@ -17,3 +17,8 @@
 ## Version 0.1.3 : 2022/5/20
 
 - `pointer_offset_[xy]` has been added to cure the instability of DECAL command result.
+
+## Version 0.1.4 : 2022/6/1
+
+- `minimize_maximize()` fails in scaling screen (high resolution display). Now it just `set_focus()`.
+- Sometimes RPA fails before clicking `Insert from my computer`. Now waits longer.
