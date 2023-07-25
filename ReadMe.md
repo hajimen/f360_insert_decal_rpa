@@ -2,7 +2,7 @@
 
 f360_insert_decal_rpa is a Python library for Robotic Process Automation (RPA) of
 Autodesk Fusion 360's **Insert -> Decal -> Insert from my computer** operation.
-F360 doesn't have APIs to do it yet (4/2/2022). So I need to automate.
+F360 doesn't have APIs to do it yet (5/20/2022). So I need to automate.
 
 ## Limitations
 

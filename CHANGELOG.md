@@ -13,3 +13,7 @@
 ## Version 0.1.2 : 2022/4/6
 
 - Bug fix: Now it works fine while debugging.
+
+## Version 0.1.3 : 2022/5/20
+
+- `pointer_offset_[xy]` has been added to cure the instability of DECAL command result.
