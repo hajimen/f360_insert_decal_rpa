@@ -59,8 +59,8 @@ Don't forget to add `app-packages` directory to `sys.path` in your script / add-
 
 2. In your script / add-in directory, `pip3.9 install {path to f360_insert_decal_rpa repository directory} -t app-packages`
 
-Use x86-64 python 3.9 for Mac. Why not embedded python in F360? F360 for Mac doesn't have `pip` module in its embedded python.
-Why x86-64? F360 uses it now (2023/7/24).
+Use python 3.9 for Mac distributed by python.org. Why not embedded python in F360? F360 for Mac has a bug (wrong PYTHONPATH for 
+Edit button -> VSCode -> terminal) and it makes troublesome to use embedded python.
 
 3. Look at `f360_insert_decal_rpa Regression Test.py` and incorporate the usage to your script / add-in.
 

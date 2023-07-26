@@ -35,3 +35,8 @@
 ## Version 0.1.7 : 2023/7/25
 
 - Follows the change of High DPI behavior in Fusion 360 2.0.16753.
+
+## Version 0.1.8 : 2023/7/26
+
+- Follows the change of Fusion 360 2.0.16753 for Mac.
+- Fix the issue that `python -m build --wheel` made a huge whl file.

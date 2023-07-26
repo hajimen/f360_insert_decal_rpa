@@ -39,4 +39,4 @@ version = {attr = "f360_insert_decal_rpa.__version__"}
 include-package-data = false
 
 [tool.setuptools.packages.find]
-exclude = ["test_data"]
+include = ["f360_insert_decal_rpa"]
