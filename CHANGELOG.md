@@ -40,3 +40,7 @@
 
 - Follows the change of Fusion 360 2.0.16753 for Mac.
 - Fix the issue that `python -m build --wheel` made a huge whl file.
+
+## Version 0.1.9 : 2023/7/27
+
+- To integrate, directory name `app-packages` is not mandatory now. You can name as you like in your F360 script / add-in.

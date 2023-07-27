@@ -9,7 +9,8 @@ from custom_event_ids import REPORT_ERROR_ID, WAIT_DECAL_DIALOG_ID, FILL_PARAMET
 SLEEP_AROUND_INSERT_FROM_MY_COMPUTER = 1.
 
 PACKAGES_DIR = pathlib.Path(__file__).absolute().parent.parent
-if PACKAGES_DIR.name != 'app-packages':  # Running in the repository, not installed by pip.
+ps32 = PACKAGES_DIR / 'pywin32_system32'
+if (not ps32.exists()) or (not ps32.is_dir()):  # Running in the repository, not installed by pip.
     PACKAGES_DIR = PACKAGES_DIR / 'app-packages'
 
 

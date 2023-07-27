@@ -6,7 +6,7 @@ F360 doesn't have APIs to do it yet (7/24/2023). So I need to automate.
 
 ## Limitations
 
-- Windows only. I'm not familiar with Mac. But you can use it as a stub (no decals).
+- Windows only. I'm not familiar with Mac. But you can use it as a stub (no decals) for compatibility.
 - Very slow.
 - Not pixel-wise precise. F360 itself doesn't have much precision about decals.
 
@@ -51,7 +51,8 @@ Use embedded python in F360.
 
 3. Look at `f360_insert_decal_rpa Regression Test.py` and incorporate the usage to your script / add-in.
 
-Don't forget to add `app-packages` directory to `sys.path` in your script / add-in.
+Don't forget to add `app-packages` directory to `sys.path` in your script / add-in. The name `app-packages` is just an example. 
+You can name `app-packages` as you like.
 
 ### Integrate to your script / add-in (Mac)
 
@@ -64,4 +65,5 @@ Edit button -> VSCode -> terminal) and it makes troublesome to use embedded pyth
 
 3. Look at `f360_insert_decal_rpa Regression Test.py` and incorporate the usage to your script / add-in.
 
-Don't forget to add `app-packages` directory to `sys.path` in your script / add-in.
+Don't forget to add `app-packages` directory to `sys.path` in your script / add-in. The name `app-packages` is just an example. 
+You can name `app-packages` as you like.
