@@ -44,3 +44,7 @@
 ## Version 0.1.9 : 2023/7/27
 
 - To integrate, directory name `app-packages` is not mandatory now. You can name as you like in your F360 script / add-in.
+
+## Version 0.1.10 : 2023/11/8
+
+- Followed Fusion 360 Python update to 3.11.
