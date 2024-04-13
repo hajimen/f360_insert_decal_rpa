@@ -79,14 +79,14 @@ def set_focus():
 def insert_from_my_computer(decal_image_file: pathlib.Path):
     try:
         sleep(SLEEP_AROUND_INSERT_FROM_MY_COMPUTER)
-        ifm_elem = UIA.window(title='Insert').child_window(title='Insert from my computer...')
+        ifm_elem = UIA.window(class_name='Nu::QTDestinationsDlg').child_window(auto_id='QTFrameWindow.standardActions.LocalOpenButton')
         sleep(SLEEP_AROUND_INSERT_FROM_MY_COMPUTER)
         ifm_elem.click_input()
     except Exception:
         return (REPORT_ERROR_ID, "I couldn't find 'Insert from my computer...' in the dialog.")
 
     try:
-        file_edit = UIA.top_window().child_window(title='File name:', class_name='Edit')
+        file_edit = UIA.top_window().child_window(auto_id='1148', class_name='Edit')
         file_edit.set_edit_text(str(decal_image_file))
         file_edit.type_keys("{ENTER}")
     except Exception:

@@ -198,10 +198,6 @@ def start(next_event_id: str, error_event_id: str, view_orientation: ac.ViewOrie
         APP.fireCustomEvent(next_event_id)
         return
 
-    if APP.preferences.generalPreferences.userLanguage != ac.UserLanguages.EnglishLanguage:
-        APP.fireCustomEvent(error_event_id, 'insert_decal_rpa requires English as user language.')
-        return
-
     for s, f in EVENT_DIC.items():
         APP.unregisterCustomEvent(s)
         event = APP.registerCustomEvent(s)

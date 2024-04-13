@@ -48,3 +48,7 @@
 ## Version 0.1.10 : 2023/11/8
 
 - Followed Fusion 360 Python update to 3.11.
+
+## Version 0.1.11 : 2024/4/13
+
+- Now it can run on non-English Windows and Fusion 360
