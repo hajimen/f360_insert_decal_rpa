@@ -51,4 +51,8 @@
 
 ## Version 0.1.11 : 2024/4/13
 
-- Now it can run on non-English Windows and Fusion 360
+- Now it can run on non-English Windows and Fusion 360.
+
+## Version 0.1.12 : 2024/4/14
+
+- Now it is much more robust to the display scale variation.

@@ -2,7 +2,7 @@
 
 f360_insert_decal_rpa is a Python library for Robotic Process Automation (RPA) of
 Autodesk Fusion 360's **Insert -> Decal -> Insert from my computer** operation.
-F360 doesn't have APIs to do it yet (7/24/2023). So I need to automate.
+F360 doesn't have APIs to do it yet (4/14/2024). So I need to automate.
 
 ## Limitations
 
@@ -60,7 +60,7 @@ You can name `app-packages` as you like.
 
 2. In your script / add-in directory, `pip3.11 install {path to f360_insert_decal_rpa repository directory} -t app-packages`
 
-Use python 3.11 for Mac distributed by python.org or homebrew. Why not embedded python in F360? F360 for Mac has a bug (wrong PYTHONPATH for 
+Use python 3.11 for Mac distributed by python.org or Homebrew. Why not embedded python in F360? F360 for Mac has a bug (wrong PYTHONPATH for 
 Edit button -> VSCode -> terminal) and it makes troublesome to use embedded python.
 
 3. Look at `f360_insert_decal_rpa Regression Test.py` and incorporate the usage to your script / add-in.

@@ -100,6 +100,7 @@ def click(x: int, y: int):
     try:
         pywinauto.mouse.move(coords=(x - 2, y))
         pywinauto.mouse.move(coords=(x - 1, y))
+        pywinauto.mouse.move(coords=(x, y))
         pywinauto.mouse.click(coords=(x, y))
         return (FILL_PARAMETER_DIALOG, '')
     except Exception:
