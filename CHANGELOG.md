@@ -56,3 +56,7 @@
 ## Version 0.1.12 : 2024/4/14
 
 - Now it is much more robust to the display scale variation.
+
+## Version 0.1.13 : 2024/10/1
+
+- Now it runs on Python 3.12. Latest F360 requires it.

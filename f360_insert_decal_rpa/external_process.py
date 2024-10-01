@@ -24,7 +24,7 @@ def append_syspath():
 append_syspath()
 del append_syspath
 
-ctypes.cdll.LoadLibrary(str(PACKAGES_DIR / 'pywin32_system32/pywintypes311.dll'))
+ctypes.cdll.LoadLibrary(str(PACKAGES_DIR / 'pywin32_system32/pywintypes312.dll'))
 from ctypes import windll, wintypes
 windll.user32.SetThreadDpiAwarenessContext(wintypes.HANDLE(-1))
 
