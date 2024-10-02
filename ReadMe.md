@@ -3,8 +3,8 @@
 f360_insert_decal_rpa is a Python library for Robotic Process Automation (RPA) of
 Autodesk Fusion (f.k.a. Fusion 360)'s **Insert -> Decal -> Insert from my computer** operation.
 Before Oct. 2024, F360 didn't have Decal APIs to do it. So I needed to automate.
-Now F360 have it, but it doesn't work in direct modeling mode yet (10/1/2024).
-See: 
+Now F360 have it, but it doesn't work in direct modeling mode yet (10/2/2024).
+See: [Decal API in direct modeling mode raises "RuntimeError: 2 : InternalValidationError : timelineObj"](https://forums.autodesk.com/t5/fusion-api-and-scripts/decal-api-in-direct-modeling-mode-raises-quot-runtimeerror-2/td-p/13056509)
 
 ## Limitations
 
