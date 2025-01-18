@@ -224,14 +224,6 @@ def start_next():
 
 
 def paste_new(p: InsertDecalParameter) -> bool:
-    def exec(cmd, fail_object):
-        result = APP.executeTextCommand(cmd)
-        if result != 'Ok':
-            APP.fireCustomEvent(REPORT_ERROR_ID,
-                                f"I failed to do {fail_object}.")
-            return True
-        return False
-
     rc: af.Component = APP.activeProduct.rootComponent
 
     def choose_light_bulb(os: ty.List[af.Occurrence]):
@@ -255,24 +247,11 @@ def paste_new(p: InsertDecalParameter) -> bool:
                 ic = io.component
 
     choose_light_bulb([p.source_occurrence, p.accommodate_occurrence])
-
-    acs = UI.activeSelections
-    acs.clear()
-    acs.add(p.source_occurrence)
-    if exec('Commands.Start CopyCommand', 'Ctrl-C copy'):
+    m = ac.Matrix3D.create()
+    m.setToIdentity()
+    o = p.accommodate_occurrence.component.occurrences.addNewComponentCopy(p.source_occurrence.component, m)
+    if o is None:
         return True
-    acs.clear()
-    existing_names = {o.name for o in p.accommodate_occurrence.component.occurrences}
-    acs.add(p.accommodate_occurrence)
-
-    if exec('Commands.Start FusionPasteNewCommand', '"Paste New"'):
-        return True
-    if exec('NuCommands.CommitCmd', 'OK in the dialog'):
-        return True
-    acs.clear()
-    current_names = {o.name for o in p.accommodate_occurrence.component.occurrences}
-    temp_name = (current_names - existing_names).pop()
-    o = p.accommodate_occurrence.component.occurrences.itemByName(temp_name)
     o.component.name = p.new_name
 
     if p.attributes is not None:
