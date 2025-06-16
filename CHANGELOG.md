@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - 2025-06-16
+
+- Now it uses Decal API instead of PRA. Now it offers just backward compatibility.
+- Drops `h_flip` and `v_flip` features.
+- Drops all dependencies.
+
 ## [0.2.1] - 2025-01-29
 
 - Now it uses new API replacing copy/paste.

@@ -3,7 +3,7 @@
 	"type":	"script",
 	"author":	"Hajime NAKAZATO",
 	"description":	{
-		"":	"RPA module of Insert -> Decal -> Insert from my computer operation. F360 doesn't have APIs to do it yet (7/24/2023). This script is just for regression test. Use pip for your product."
+		"":	"f360_insert_decal_rpa offers just backward compatibility. This script is just for regression test. Use pip for your product."
 	},
 	"supportedOS":	"windows | mac",
 	"editEnabled":	true

@@ -1,5 +1,5 @@
 # Author-Hajime NAKAZATO
-# Description-RPA module of "Insert -> Decal -> Insert from my computer" operation. Fusion 360 API doesn't have the function.
+# Description-Backward compatible module for old RPA module. Fusion 360 API didn't have Decal function before June 2025.
 
 # This file is just for testing. Run as a script to test.
 
@@ -7,20 +7,16 @@ import traceback
 import sys
 import pathlib
 import typing as ty
-import tempfile
 import time
+import tempfile
+import adsk
 import adsk.core as ac
 import adsk.fusion as af
-import adsk
 
 CURRENT_DIR = pathlib.Path(__file__).parent
 
 if str(CURRENT_DIR) not in sys.path:
     sys.path.append(str(CURRENT_DIR))
-ap = CURRENT_DIR / 'app-packages'
-if str(ap) not in sys.path:
-    sys.path.append(str(ap))
-del ap
 
 # F360's Python doesn't reload modules. It is too bad while debugging.
 import importlib
@@ -28,17 +24,17 @@ for i in list(sys.modules.keys()):
     if i.startswith('f360_insert_decal_rpa'):
         importlib.reload(sys.modules[i])
 
-from f360_insert_decal_rpa import start as insert_decal_rpa_start
-from f360_insert_decal_rpa import InsertDecalParameter, FALLBACK_MODE
+from f360_insert_decal_rpa import start_batch
+from f360_insert_decal_rpa import InsertDecalParameter
 
 
-WAIT_RPA_DONE_ID = 'wait_rpa_done'
-ERROR_ID = 'rpa_error'
-WAIT_HANDLER: ty.Union[ac.CustomEventHandler, None] = None
-WAIT_EVENT: ty.Union[ac.CustomEvent, None] = None
-ERROR_HANDLER: ty.Union[ac.CustomEventHandler, None] = None
-ERROR_EVENT: ty.Union[ac.CustomEvent, None] = None
-DOC: ty.Union[ac.Document, None] = None
+# Global list to keep all event handlers in scope.
+# This is only needed with Python.
+HANDLERS = []
+
+JOIN = False
+GEN_IMG_PATH: pathlib.Path
+ORACLE_IMG_PATH: pathlib.Path
 
 
 TEST_PARAMS = [
@@ -50,22 +46,19 @@ TEST_PARAMS = [
     {'scale_x': 1.4},
     {'scale_y': 1.4},
     {'scale_plane_xy': 2.4},
-    {'h_flip': True},
-    {'v_flip': True},
     {'chain_faces': False, 'scale_plane_xy': 2.4},
     {'pointer_offset_x': 0.2, 'pointer_offset_y': 0.3, 'pointer_offset_z': 0.1},
+    {'z_angle': 0.1, 'scale_x': 1.4, 'y_distance': 0.1, 'pointer_offset_x': 0.2, 'pointer_offset_y': 0.3},
 ]
 
 
 def run(context):
-    global WAIT_EVENT, WAIT_HANDLER, ERROR_EVENT, ERROR_HANDLER, DOC
+    global JOIN, GEN_IMG_PATH, ORACLE_IMG_PATH
     app: ac.Application = ac.Application.get()
+    ui = app.userInterface
     try:
-        ui = app.userInterface
-        ui.messageBox("This is a regression test of f360_insert_decal_rpa.\nDon't touch the mouse or keyboard until the next dialog box is shown.")  # noqa: E501
-
         # Prepare test fixture.
-        DOC = app.documents.add(ac.DocumentTypes.FusionDesignDocumentType)
+        doc = app.documents.add(ac.DocumentTypes.FusionDesignDocumentType)
         root_comp: af.Component = app.activeProduct.rootComponent
         trans = ac.Matrix3D.create()
         src1_occ = root_comp.occurrences.addNewComponent(trans)
@@ -119,20 +112,90 @@ def run(context):
             idp = InsertDecalParameter(src2_occ, acc2_occ, str(i), dif, **p)
             params.append(idp)
 
-        # Prepare F360's custom events which will be fired when RPA finished / failed.
-        WAIT_HANDLER = WaitRpaDoneEventHandler()
-        ERROR_HANDLER = ErrorEventHandler()
-        app.unregisterCustomEvent(WAIT_RPA_DONE_ID)  # In case of crash without cleanup while debugging.
-        app.unregisterCustomEvent(ERROR_ID)  # In case of crash without cleanup while debugging.
-        WAIT_EVENT = app.registerCustomEvent(WAIT_RPA_DONE_ID)
-        ERROR_EVENT = app.registerCustomEvent(ERROR_ID)
-        WAIT_EVENT.add(WAIT_HANDLER)
-        ERROR_EVENT.add(ERROR_HANDLER)
+        start_batch(ac.ViewOrientations.TopViewOrientation, ac.Point3D.create(0., 0., 0.), params)
 
-        insert_decal_rpa_start(WAIT_RPA_DONE_ID, ERROR_ID, ac.ViewOrientations.TopViewOrientation, ac.Point3D.create(0., 0., 0.), params, True)
+        # Adjust camera.
+        for o in root_comp.occurrences:
+            if o.component.name == 'Source Component Level 1':
+                src1_occ = o
+            o.isLightBulbOn = False
+        src1_occ.isLightBulbOn = True
+        for o in src1_occ.component.occurrences:
+            if o.component.name == 'Source Component Level 2':
+                src2_occ = o
+            o.isLightBulbOn = False
+        src2_occ.isLightBulbOn = True
 
-        # Without this, F360's custom event handlers never be called.
-        adsk.autoTerminate(False)
+        do_many_events()
+        camera: ac.Camera = app.activeViewport.camera
+        camera.viewOrientation = ac.ViewOrientations.TopViewOrientation
+        camera.isFitView = True
+        camera.isSmoothTransition = False
+        app.activeViewport.camera = camera
+        do_many_events()
+
+        camera: ac.Camera = app.activeViewport.camera
+        camera.isFitView = True
+        camera.isSmoothTransition = False
+        app.activeViewport.camera = camera
+        do_many_events()
+
+        # Adjust light bulbs to capture viewport images of each results.
+        for o in root_comp.occurrences:
+            if o.component.name == 'Accommodate Component Level 1':
+                acc1_occ = o
+            o.isLightBulbOn = False
+        acc1_occ.isLightBulbOn = True
+        for o in acc1_occ.component.occurrences:
+            if o.component.name == 'Accommodate Component Level 2':
+                acc2_occ = o
+            o.isLightBulbOn = False
+        if len(acc2_occ.component.occurrences) != len(TEST_PARAMS):
+            raise Exception("The number of accommodated components doesn't match.")
+        acc2_occ.isLightBulbOn = True
+        for o in acc2_occ.component.occurrences:
+            o.isLightBulbOn = False
+
+        cmd_defs: ac.CommandDefinitions = ui.commandDefinitions
+        cmd_id = 'ShowImageButtonId'
+        cmd_def: ac.CommandDefinition | None = cmd_defs.itemById(cmd_id)
+        if cmd_def is not None:
+            cmd_def.deleteMe()
+            cmd_def = cmd_defs.itemById(cmd_id)
+            if cmd_def is not None:
+                raise Exception(f'{cmd_id} deleteMe() failed.')
+        cmd_def = cmd_defs.addButtonDefinition(cmd_id, 'ShowImage', 'tooltip')
+        create_handler = ShowImageCommandCreatedEventHandler()
+        cmd_def.commandCreated.add(create_handler)
+        HANDLERS.append(create_handler)
+
+        # Capture viewport images of each results and compare them with oracles.
+        WH = 200
+        with tempfile.TemporaryDirectory() as tmp:
+            t = pathlib.Path(tmp)
+            for o in acc2_occ.component.occurrences:
+                o.isLightBulbOn = True
+                app.activeViewport.saveAsImageFile(str(t / f'{o.component.name}.png'), WH, WH)
+                o.isLightBulbOn = False
+            msg = 'Compare test result with test oracles by your eyes.\nTop is oracle and bottom is result.\nComputer is not good enough at this job yet :-)'  # noqa: E501
+            ui.messageBox(msg)
+            # In detail:
+            # With RPA, F360's window size affected test results subtly. I tried to find a good way to compare results with oracles
+            # like feature value (SIFT etc.), but in vain.
+            for o in acc2_occ.component.occurrences:
+                # # Make oracle
+                # from shutil import copy
+                # copy(t / f'{o.component.name}.png', CURRENT_DIR / f'test_data/oracle/{o.component.name}.png')
+                GEN_IMG_PATH = t / f'{o.component.name}.png'
+                ORACLE_IMG_PATH = CURRENT_DIR / f'test_data/oracle/{o.component.name}.png'
+                JOIN = False
+                cmd_def.execute()
+                while not JOIN:
+                    adsk.doEvents()
+
+        doc.close(False)
+        cmd_def.deleteMe()
+        HANDLERS.clear()
 
     except Exception:
         msg = traceback.format_exc()
@@ -141,116 +204,36 @@ def run(context):
             ui.messageBox('Failed in run():\n{}'.format(msg))
 
 
-def cleanup_handler(app: ac.Application):
-    global WAIT_EVENT, WAIT_HANDLER, ERROR_EVENT, ERROR_HANDLER
-    WAIT_EVENT.remove(WAIT_HANDLER)
-    ERROR_EVENT.remove(ERROR_HANDLER)
-    app.unregisterCustomEvent(WAIT_RPA_DONE_ID)
-    app.unregisterCustomEvent(ERROR_ID)
-    WAIT_HANDLER = None
-    ERROR_HANDLER = None
-    WAIT_EVENT = None
-    ERROR_EVENT = None
-
-
-class ErrorEventHandler(ac.CustomEventHandler):
-    def __init__(self):
-        super().__init__()
-
-    def notify(self, args: ac.CustomEventArgs):
-        app = ac.Application.get()
-        cleanup_handler(app)
-        app.userInterface.messageBox(f'f360_insert_decal_rpa test failed.\n{args.additionalInfo}')  # noqa: E501
-        adsk.terminate()
-
-
 def do_many_events():
-    for _ in range(100):
+    from_time = time.time()
+    while time.time() - from_time < 1:
         adsk.doEvents()
-        time.sleep(0.01)
 
 
-class WaitRpaDoneEventHandler(ac.CustomEventHandler):
+# Event handler for the commandCreated event.
+class ShowImageCommandCreatedEventHandler(ac.CommandCreatedEventHandler):
     def __init__(self):
         super().__init__()
 
     def notify(self, args):
-        app = ac.Application.get()
-        try:
-            cleanup_handler(app)
+        cmd = ac.CommandCreatedEventArgs.cast(args).command
 
-            ui = app.userInterface
+        on_destroy = ShowImageCommandDestroyHandler()
+        cmd.destroy.add(on_destroy)
+        HANDLERS.append(on_destroy)
 
-            # Adjust camera.
-            root_comp: af.Component = app.activeProduct.rootComponent
-            for o in root_comp.occurrences:
-                if o.component.name == 'Source Component Level 1':
-                    src1_occ = o
-                o.isLightBulbOn = False
-            src1_occ.isLightBulbOn = True
-            for o in src1_occ.component.occurrences:
-                if o.component.name == 'Source Component Level 2':
-                    src2_occ = o
-                o.isLightBulbOn = False
-            src2_occ.isLightBulbOn = True
+        inputs = cmd.commandInputs
+        oracle_in = inputs.addImageCommandInput('ID_ORACLE', 'Oracle', str(ORACLE_IMG_PATH))
+        oracle_in.isFullWidth = True
+        test_img_in = inputs.addImageCommandInput('ID_RESULT', 'Test', str(GEN_IMG_PATH))
+        test_img_in.isFullWidth = True
 
-            do_many_events()
-            camera: ac.Camera = app.activeViewport.camera
-            camera.viewOrientation = ac.ViewOrientations.TopViewOrientation
-            camera.isFitView = True
-            camera.isSmoothTransition = False
-            app.activeViewport.camera = camera
-            do_many_events()
 
-            camera: ac.Camera = app.activeViewport.camera
-            camera.isFitView = True
-            camera.isSmoothTransition = False
-            app.activeViewport.camera = camera
-            do_many_events()
+# Event handler for the destroy event.
+class ShowImageCommandDestroyHandler(ac.CommandEventHandler):
+    def __init__(self):
+        super().__init__()
 
-            # Adjust light bulbs to capture viewport images of each results.
-            for o in root_comp.occurrences:
-                if o.component.name == 'Accommodate Component Level 1':
-                    acc1_occ = o
-                o.isLightBulbOn = False
-            acc1_occ.isLightBulbOn = True
-            for o in acc1_occ.component.occurrences:
-                if o.component.name == 'Accommodate Component Level 2':
-                    acc2_occ = o
-                o.isLightBulbOn = False
-            if len(acc2_occ.component.occurrences) != len(TEST_PARAMS):
-                raise Exception("The number of accommodated components doesn't match.")
-            acc2_occ.isLightBulbOn = True
-            for o in acc2_occ.component.occurrences:
-                o.isLightBulbOn = False
-
-            if FALLBACK_MODE:
-                ui.messageBox('The f360_insert_decal_rpa regression test has done.')
-            else:
-                from PIL import Image
-                # Capture viewport images of each results and compare them with oracles.
-                with tempfile.TemporaryDirectory() as tmp:
-                    t = pathlib.Path(tmp)
-                    for o in acc2_occ.component.occurrences:
-                        o.isLightBulbOn = True
-                        app.activeViewport.saveAsImageFile(str(t / f'{o.component.name}.png'), 200, 200)
-                        o.isLightBulbOn = False
-                    msg = 'Compare test result with test oracles by your eyes.\nLeft is oracle and right is result.\nComputer is not good enough at this job yet :-)'  # noqa: E501
-                    ui.messageBox(msg)
-                    # In detail:
-                    # F360's window size affects test results subtly. I tried to find a good way to compare results with oracles
-                    # like feature value (SIFT etc.), but in vain.
-                    for o in acc2_occ.component.occurrences:
-                        gen = Image.open(str(t / f'{o.component.name}.png'))
-                        # gen.save(str(CURRENT_DIR / f'test_data/oracle/{o.component.name}.png'))  # Make oracle
-                        oracle = Image.open(str(CURRENT_DIR / f'test_data/oracle/{o.component.name}.png'))
-                        c = Image.new('RGB', (gen.width + oracle.width, max(gen.height, oracle.height)))
-                        c.paste(oracle, (0, 0))
-                        c.paste(gen, (oracle.width, 0))
-                        c.show()
-
-            DOC.close(False)
-        except Exception:
-            if ui is not None:
-                ui.messageBox('Failed in WaitRpaDoneEventHandler.notify():\n{}'.format(traceback.format_exc()))
-        adsk.terminate()
+    def notify(self, args):
+        global JOIN
+        JOIN = True

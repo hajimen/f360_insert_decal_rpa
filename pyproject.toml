@@ -5,27 +5,20 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "f360_insert_decal_rpa"
 dynamic = ["version"]
-description = "f360_insert_decal_rpa is a Python library for Robotic Process Automation (RPA) of Autodesk Fusion 360's **Insert -> Decal -> Insert from my computer** operation."
+description = "f360_insert_decal_rpa was a Python library for Robotic Process Automation (RPA) of Autodesk Fusion 360's **Insert -> Decal -> Insert from my computer** operation. Now it uses Decal API and offers just backward compatibility."
 authors = [{name = "Hajime Nakazato", email = "hajime@kaoriha.org"},]
-license ={text = "MIT License"}
+license = "MIT"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "pywinauto >= 0.6.8 ; platform_system == \"Windows\"",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pywinauto >= 0.6.8 ; platform_system == \"Windows\"",
-    "Pillow >= 8.3.1 ; platform_system == \"Windows\""
 ]
 
 [project.urls]
