@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.2] - 2025-06-17
+
+- Bug fix: now it can handle all direction of the decal.
+- Better reproduction of alignment.
+
 ## [0.3.1] - 2025-06-16
 
 - Now it uses Decal API instead of PRA. Now it offers just backward compatibility.

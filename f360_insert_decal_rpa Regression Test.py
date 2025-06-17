@@ -64,21 +64,10 @@ def run(context):
         src1_occ = root_comp.occurrences.addNewComponent(trans)
         src1_occ.component.name = 'Source Component Level 1'
 
-        src_block_occ = src1_occ.component.occurrences.addNewComponent(trans)
-        src_block_occ = src_block_occ.createForAssemblyContext(src1_occ)
-        src_block_occ.component.name = 'Block Component Src'
-        block_sketch = src_block_occ.component.sketches.add(src_block_occ.component.xYConstructionPlane)
-        block_sketch.sketchCurves.sketchLines.addTwoPointRectangle(
-            ac.Point3D.create(-1., -2., 0.), ac.Point3D.create(2., 1., 0.), )
-        block_ext_in = src_block_occ.component.features.extrudeFeatures.createInput(
-            block_sketch.profiles.item(0), af.FeatureOperations.NewBodyFeatureOperation)
-        block_ext_in.setDistanceExtent(False, ac.ValueInput.createByReal(0.3))
-        _ = src_block_occ.component.features.extrudeFeatures.add(block_ext_in)
-
         src2_occ = src1_occ.component.occurrences.addNewComponent(trans)
         src2_occ = src2_occ.createForAssemblyContext(src1_occ)
         src2_comp = src2_occ.component
-        src2_occ.component.name = 'Source Component Level 2'
+        src2_comp.name = 'Source Component Level 2'
         src2_comp.sketches.add(src2_comp.xYConstructionPlane)
         sketch = src2_comp.sketches.add(src2_comp.xYConstructionPlane)
         sketch.sketchCurves.sketchLines.addTwoPointRectangle(
@@ -88,19 +77,20 @@ def run(context):
         distance = ac.ValueInput.createByReal(0.2)
         ext_in.setDistanceExtent(False, distance)
         _ = src2_comp.features.extrudeFeatures.add(ext_in)
+
+        # src2_2_occ = src1_occ.component.occurrences.addNewComponentCopy(src2_comp, trans)
+        # src2_2_comp = src2_2_occ.component
+        # src2_2_comp.name = 'Source Component Level 2 Test 2'
+        # oc = ac.ObjectCollection.createWithArray([src2_2_comp.bRepBodies[0]])
+        # move_in = src2_2_comp.features.moveFeatures.createInput2(oc)
+        # tr = ac.Matrix3D.create()
+        # tr.setToRotation(math.pi / 2, ac.Vector3D.create(0, 1, 0), ac.Point3D.create())
+        # move_in.defineAsFreeMove(tr)
+        # src2_2_comp.features.moveFeatures.add(move_in)
+        # src2_2_occ.isLightBulbOn = False
+
         acc1_occ = root_comp.occurrences.addNewComponent(trans)
         acc1_occ.component.name = 'Accommodate Component Level 1'
-
-        acc_block_occ = acc1_occ.component.occurrences.addNewComponent(trans)
-        acc_block_occ = acc_block_occ.createForAssemblyContext(acc1_occ)
-        acc_block_occ.component.name = 'Block Component Acc'
-        acc_block_sketch = acc_block_occ.component.sketches.add(acc_block_occ.component.xYConstructionPlane)
-        acc_block_sketch.sketchCurves.sketchLines.addTwoPointRectangle(
-            ac.Point3D.create(-2., -1., 0.), ac.Point3D.create(1., 2., 0.), )
-        acc_block_ext_in = acc_block_occ.component.features.extrudeFeatures.createInput(
-            acc_block_sketch.profiles.item(0), af.FeatureOperations.NewBodyFeatureOperation)
-        acc_block_ext_in.setDistanceExtent(False, ac.ValueInput.createByReal(0.3))
-        _ = acc_block_occ.component.features.extrudeFeatures.add(acc_block_ext_in)
 
         acc2_occ = acc1_occ.component.occurrences.addNewComponent(trans)
         acc2_occ = acc2_occ.createForAssemblyContext(acc1_occ)
@@ -113,6 +103,16 @@ def run(context):
             params.append(idp)
 
         start_batch(ac.ViewOrientations.TopViewOrientation, ac.Point3D.create(0., 0., 0.), params)
+
+        # src2_occ.isLightBulbOn = False
+        # src2_2_occ.isLightBulbOn = True
+        # params: ty.List[InsertDecalParameter] = []
+        # for i, p in enumerate(TEST2_PARAMS):
+        #     dif = CURRENT_DIR / 'test_data/decal_image' / f'{i % 10}.png'
+        #     idp = InsertDecalParameter(src2_2_occ, acc2_occ, str(i) + '_2', dif, **p)
+        #     params.append(idp)
+
+        # start_batch(ac.ViewOrientations.RightViewOrientation, ac.Point3D.create(0., 0., 0), params)
 
         # Adjust camera.
         for o in root_comp.occurrences:

@@ -128,7 +128,8 @@ def insert_decal(p: InsertDecalParameter, eye_point: ac.Point3D, target_point: a
     if len(faces) == 0:
         return True
     f = faces[0]
-    decal_center_v = hit_points[0].asVector()
+    tp = hit_points[0]
+    decal_center_v = tp.asVector()
 
     # build transform Matrix3D
     mt = ac.Matrix3D.create()
@@ -143,23 +144,18 @@ def insert_decal(p: InsertDecalParameter, eye_point: ac.Point3D, target_point: a
         mt.setCell(0, 0, x)
         mt.setCell(1, 1, y)
 
-    mr = ac.Matrix3D.create()
-    mr.setToIdentity()
-    if p.z_angle is not None:
-        mr.setToRotation(p.z_angle, Z_AXIS, ORIGIN_P)
-
     # call API
     base_feature = rc.features.baseFeatures.add()
     if not base_feature.startEdit():
         raise Exception('BaseFeatures.startEdit() failed.')
-    di = rc.decals.createInput(str(p.decal_image_file), [f], hit_points[0])
+    di = rc.decals.createInput(str(p.decal_image_file), [f], tp)
+    dit = di.transform.copy()
+    dit.invert()
+    ta = dit.asArray()
 
     d_x = 0. if p.x_distance is None else p.x_distance
     d_y = 0. if p.y_distance is None else p.y_distance
     if d_x != 0. or d_y != 0.:
-        dit = di.transform.copy()
-        dit.invert()
-        ta = dit.asArray()
         xv = ac.Vector3D.create(*ta[0:3])
         xv.normalize()
         xv.scaleBy(d_x)
@@ -182,6 +178,13 @@ def insert_decal(p: InsertDecalParameter, eye_point: ac.Point3D, target_point: a
             if f == ff:
                 decal_center_v = hp.asVector()
                 break
+
+    mr = ac.Matrix3D.create()
+    mr.setToIdentity()
+    if p.z_angle is not None:
+        zv = ac.Vector3D.create(*ta[8:11])
+        zv.normalize()
+        mr.setToRotation(p.z_angle, zv, ORIGIN_P)
 
     mt.transformBy(di.transform)
     mt.transformBy(mr)
